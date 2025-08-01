@@ -310,7 +310,7 @@ MIT License
 
 ## API Note: "Tune & Store"
 
-At this time, the RF2K-S amplifier requires the user to press the **"Tune & Store"** button manually on the front panel during tuning. The RFKit API (v0.9) does not support triggering this action programmatically.
+At this time, the RF2K-S amplifier requires the user to press the **"Tune & Store"** button manually on the front panel during tuning. [The RFKit API (v0.9)](https://rf-power.eu/wp-content/uploads/2024/12/RFKIT_api_doc_0_9_0.html) does not support triggering this action programmatically.
 
 A feature request has been submitted to the RF-Kit development team to add API support for automating **Tune & Store**. We hope this functionality will become available in a future firmware update.
 
