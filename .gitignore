@@ -1,0 +1,7 @@
+*.code-workspace
+settings.yml
+PRIVATE_README.md
+*.log
+desktop.ini
+.vscode
+__pycache__
