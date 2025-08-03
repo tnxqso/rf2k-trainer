@@ -2,6 +2,9 @@ import socket
 import threading
 import re
 import os
+from loghandler import get_logger
+logger = get_logger()
+
 
 class FlexRadioClient:
     def __init__(self, host, port, debug=False):
@@ -21,9 +24,10 @@ class FlexRadioClient:
         try:
             self.sock = socket.create_connection((self.host, self.port), timeout=timeout)
             self.connected = True
-            print(f"[INFO] Connected to FlexRadio at {self.host}:{self.port}")
+            logger.info(f"Connected to FlexRadio at {self.host}:{self.port}")
             self._initial_handshake()
         except Exception as e:
+            logger.error(f"Connection error: {e}")
             raise ConnectionError(f"Could not connect to FlexRadio: {e}")
 
     def _initial_handshake(self):
@@ -41,15 +45,15 @@ class FlexRadioClient:
                             self.nickname = field.split("=", 1)[1]
                         elif field.startswith("callsign="):
                             self.callsign = field.split("=", 1)[1]
-                    info = f"[INFO] Connected radio : {self.nickname}"
+                    info = f"Connected radio : {self.nickname}"
                     if self.callsign:
                         info += f", callsign: {self.callsign}"
-                    print(info)
+                    logger.info(info)
                 if "slice " in response and "tx=1" in response:
                     slice_match = re.search(r"slice (\d+) .*tx=1", response)
                     if slice_match:
                         self.active_slice_id = slice_match.group(1)
-                        print(f"[INFO] Active TX slice: {self.active_slice_id}")
+                        logger.info(f"Active TX slice: {self.active_slice_id}")
             elif response.startswith("R"):
                 match = re.match(r"^R(\d+)\|(.*)$", response)
                 if match and int(match.group(1)) == seq:
@@ -57,13 +61,13 @@ class FlexRadioClient:
 
     def send_command(self, command):
         if not self.connected:
+            logger.error("send_command called while not connected")
             raise RuntimeError("TCP socket is not connected")
         with self.lock:
             seq = self.seq
             self.seq += 1
         full_command = f"C{seq}|{command}\n"
-        if self.debug:
-            print(f"[SEND] {full_command.strip()}")
+        logger.debug(f"[SEND] {full_command.strip()}")
         self.sock.sendall(full_command.encode())
 
         while True:
@@ -73,13 +77,13 @@ class FlexRadioClient:
 
     def _send_raw_command(self, command):
         if not self.connected:
+            logger.error("_send_raw_command called while not connected")
             raise RuntimeError("TCP socket is not connected")
         with self.lock:
             seq = self.seq
             self.seq += 1
         full_command = f"C{seq}|{command}\n"
-        if self.debug:
-            print(f"[SEND] {full_command.strip()}")
+        logger.debug(f"[SEND] {full_command.strip()}")
         self.sock.sendall(full_command.encode())
         return seq
 
@@ -87,6 +91,7 @@ class FlexRadioClient:
         while b"\n" not in self.buffer:
             chunk = self.sock.recv(4096)
             if not chunk:
+                logger.error("Socket closed by FlexRadio")
                 raise ConnectionError("Socket connection closed by FlexRadio")
             self.buffer += chunk
         line, self.buffer = self.buffer.split(b"\n", 1)
@@ -111,4 +116,4 @@ class FlexRadioClient:
         if self.sock:
             self.sock.close()
             self.connected = False
-            print("[INFO] TCP connection closed")
+            logger.info("TCP connection closed")

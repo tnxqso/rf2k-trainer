@@ -2,14 +2,13 @@ import yaml
 import os
 import sys
 from loghandler import setup_logging
-from typing import Dict, Any
-import math
+from typing import Dict, Any, Tuple
 
 # There are modules impoirted in main.py that use the logger, so we need to import them here
 # E.g. rf2ks_client, flexradio_comm, rf2ks_logger
 
 PROGRAM_NAME = "RF2K-Trainer"
-VERSION = "0.8"
+VERSION = "0.7"
 GIT_PROJECT_URL = "https://github.com/tnxqso/rf2k-trainer"
 
 logger = None
@@ -26,7 +25,10 @@ def load_rf2k_segment_alignment(file_path: str = "rf2k_segment_alignment.yml") -
     data = load_yaml_file(file_path)
     return data["rf2k_segment_alignment"]
 
-def load_combined_band_data(settings: Dict[str, Any], segment_alignment: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+def load_combined_band_data(
+    settings: Dict[str, Any],
+    segment_alignment: Dict[str, Any]
+) -> Dict[str, Dict[str, Any]]:
     region = settings.get("defaults", {}).get("iaru_region", 1)
     iaru_file = f"iaru_region_{region}.yml"
     iaru_data = load_yaml_file(iaru_file).get("bands", {})
@@ -35,7 +37,7 @@ def load_combined_band_data(settings: Dict[str, Any], segment_alignment: Dict[st
 
     for band, iaru_band_data in iaru_data.items():
         if band not in band_overrides:
-            continue
+            continue  # Skip bands not listed in settings
 
         override = band_overrides.get(band, {})
         if not override.get("enabled", False):
@@ -44,6 +46,7 @@ def load_combined_band_data(settings: Dict[str, Any], segment_alignment: Dict[st
         iaru_start = iaru_band_data["band_start"]
         iaru_end = iaru_band_data["band_end"]
 
+        # Use override or fall back to IARU values
         band_start = override.get("band_start", iaru_start)
         band_end = override.get("band_end", iaru_end)
 
@@ -51,8 +54,14 @@ def load_combined_band_data(settings: Dict[str, Any], segment_alignment: Dict[st
 
         tune_power = override.get("tune_power", settings.get("defaults", {}).get("tune_power", 10))
 
-        segment_size = segment_alignment[band]["segment_size"]
-        reference_center = segment_alignment[band]["first_segment_center"]
+        if not (4 <= tune_power <= 39):
+            raise ValueError(
+                f"[ERROR] tune_power for {band} is out of valid range (4–39 W): {tune_power}"
+            )
+
+        seg_cfg = segment_alignment.get(band, {})
+        segment_size = seg_cfg.get("segment_size")
+        ref_center = seg_cfg.get("first_segment_center")
 
         combined[band] = {
             "band_start": band_start,
@@ -62,49 +71,16 @@ def load_combined_band_data(settings: Dict[str, Any], segment_alignment: Dict[st
             "first_segment_center": calculate_first_segment_center(
                 band_start=band_start,
                 segment_size=segment_size,
-                reference_center=reference_center
+                reference_center=ref_center
             )
         }
 
     return combined
 
-def calculate_first_segment_center(
-    band_start: float,
-    segment_size: float,
-    reference_center: float
-) -> float:
-    """
-    Return the first RF2K-S segment center frequency whose segment START is at or after band_start.
-
-    Arguments:
-        band_start: Lower limit of band (kHz)
-        segment_size: Segment size in kHz
-        reference_center: A known segment center aligned to the RF2K-S segment grid
-
-    Returns:
-        First segment center frequency (float)
-    """
-    if segment_size <= 0:
-        raise ValueError("segment_size must be positive")
-
-    half = segment_size / 2.0
-
-    # This is the start of the segment corresponding to the reference center
-    ref_start = reference_center - half
-
-    # Step count forward to the first segment whose START is >= band_start
-    steps_forward = math.ceil((band_start - ref_start) / segment_size)
-
-    # New segment center
-    first_center = reference_center + steps_forward * segment_size
-
-    return round(first_center, 4)
-
 def validate_band_overrides(
     band: str,
     iaru_band_data: Dict[str, Any],
     override: Dict[str, Any],
-    segment_alignment: Dict[str, Any]
 ) -> None:
     """Validate band_start and band_end overrides against IARU defaults."""
     iaru_band_start = iaru_band_data["band_start"]
@@ -114,14 +90,10 @@ def validate_band_overrides(
     band_start = override.get("band_start", iaru_band_start)
     band_end = override.get("band_end", iaru_band_end)
 
-    segment_size = segment_alignment.get(band, {}).get("segment_size")
-    if not segment_size:
-        raise ValueError(f"[ERROR] segment_size missing in rf2k_segment_alignment for band: {band}")
-
-    # Ensure band_end > band_start with at least one segment_size as defined in rf2k_segment_alignment.yml
-    if band_end < band_start + segment_size:
+    # Ensure band_end > band_start with at least 600 Hz
+    if band_end <= band_start + 0.6:
         raise ValueError(
-            f"[ERROR] band_end for {band} must be at least {segment_size} Hz above band_start. "
+            f"[ERROR] band_end for {band} must be at least 600 Hz above band_start. "
             f"Got band_start: {band_start}, band_end: {band_end}"
         )
 
@@ -173,7 +145,7 @@ def calculate_tuning_frequencies(
     # Add main tuning points (fully covered segments within band)
     while current + half_segment <= band_end:
         if current - half_segment >= band_start:
-            tuning_points.append(round(current, 4))
+            tuning_points.append(current)
         current += segment_size
 
     # Add start gap point if applicable
@@ -183,7 +155,7 @@ def calculate_tuning_frequencies(
     )
     if first_covered > band_start:
         gap_center = (band_start + first_covered) / 2.0
-        tuning_points.insert(0, round(gap_center, 4))
+        tuning_points.insert(0, gap_center)
 
     # Add end gap point if applicable
     last_covered = (
@@ -192,7 +164,7 @@ def calculate_tuning_frequencies(
     )
     if last_covered < band_end:
         gap_center = (last_covered + band_end) / 2.0
-        tuning_points.append(round(gap_center, 4))
+        tuning_points.append(gap_center)
 
     return tuning_points
 
@@ -258,10 +230,13 @@ If no arguments are given, all enabled bands will be tuned interactively.
         config = load_yaml_file("settings.yml")
         segment_config = load_rf2k_segment_alignment("rf2k_segment_alignment.yml")
         bands = load_combined_band_data(config, segment_config)
-
         print(f"{PROGRAM_NAME} - v{VERSION} - Band Information")
 
         for band_name, band_data in bands.items():
+            if band_name not in segment_config:
+                logger.error(f"[ERROR] No RF2K segment alignment defined for band: {band_name}")
+                raise ValueError(f"[ERROR] No RF2K segment alignment defined for band: {band_name}")
+
             print_band_info(band_name, band_data)
 
         return
@@ -339,13 +314,18 @@ Before proceeding with automatic tuning:
     for band_name, band_data in bands.items():
         logger.info(f"\n=== Band: {band_name} ===")
 
+        if band_name not in segment_config:
+            logger.error(f"[ERROR] No RF2K segment alignment defined for band: {band_name}")
+            continue
+
+        segment_size = segment_config[band_name]["segment_size"]
+        first_segment_center = segment_config[band_name]["first_segment_center"]
+        
         band_start = band_data["band_start"]
         band_end = band_data["band_end"]
         tune_power = band_data["tune_power"]
-        segment_size = band_data["segment_size"]
-        first_segment_center = band_data["first_segment_center"]
 
-        tuning_freqs = calculate_tuning_frequencies(
+        tuning_freqs, _ = calculate_tuning_frequencies(
             band_start,
             band_end,
             segment_size,

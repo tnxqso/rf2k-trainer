@@ -1,5 +1,8 @@
 import sys
 import requests
+from requests.exceptions import RequestException, HTTPError
+from loghandler import get_logger
+logger = get_logger()
 
 class RF2KSClient:
     def __init__(self, config):
@@ -14,8 +17,11 @@ class RF2KSClient:
             return
 
         try:
-            response = requests.get(f"{self.base_url}/info", timeout=3)
-            response.raise_for_status()
+            response = requests.get(f"{self.base_url}/info", timeout=8)
+            if response.status_code != 200:
+                logger.error(f"[RF2K-S] HTTP {response.status_code} - {response.reason}")
+                raise ConnectionError(f"Failed to connect to RF2K-S at {self.base_url}")
+
             data = response.json()
 
             # Extract fields
@@ -24,26 +30,64 @@ class RF2KSClient:
             fw_gui = data.get("software_version", {}).get("GUI", "N/A")
             fw_ctrl = data.get("software_version", {}).get("controller", "N/A")
 
-            print("[RF2K-S] Amplifier Info:")
-            print(f"  Device:     {device}")
-            print(f"  Name:       {name}")
-            print(f"  FW GUI:     {fw_gui}")
-            print(f"  FW Ctrl:    {fw_ctrl}")
-        except Exception as e:
-            print(f"[ERROR] Could not fetch amplifier info: {e}")
-            print("Aborting...")
+            logger.info("[RF2K-S] Amplifier Info:")
+            logger.info(f"  Device:     {device}")
+            logger.info(f"  Name:       {name}")
+            logger.info(f"  FW GUI:     {fw_gui}")
+            logger.info(f"  FW Ctrl:    {fw_ctrl}")
+
+        except requests.exceptions.Timeout:
+            logger.error("[ERROR] Connection to RF2K-S timed out.")
+            logger.error("Aborting...")
             sys.exit(1)
 
-    def set_operate_mode(self, mode):
-        if not self.enabled:
-            return
+        except requests.exceptions.ConnectionError:
+            logger.error("[ERROR] Could not connect to RF2K-S.")
+            logger.error("Aborting...")
+            sys.exit(1)
 
-        mode = mode.upper()
-        if mode not in ("OPERATE", "STANDBY"):
-            print(f"[RF2K-S] Invalid mode '{mode}', must be OPERATE or STANDBY")
-            return
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"[ERROR] HTTP error while fetching RF2K-S info: {e}")
+            logger.error("Aborting...")
+            sys.exit(1)
 
+        except requests.exceptions.RequestException as e:
+            logger.error(f"[ERROR] Unexpected error while communicating with RF2K-S: {e}")
+            logger.error("Aborting...")
+            sys.exit(1)
+
+        except ValueError:
+            logger.error("[ERROR] Failed to parse JSON response from RF2K-S.")
+            logger.error("Aborting...")
+            sys.exit(1)
+
+        except Exception as e:
+            logger.error(f"[ERROR] Unexpected exception: {e}")
+            logger.error("Aborting...")
+            sys.exit(1)
+
+    def get_operate_mode(self) -> str:
+        """Return current RF2K-S operate mode (e.g., 'OPERATE', 'STANDBY')."""
         try:
+            response = requests.get(
+                f"{self.base_url}/operate-mode",
+                headers={"Accept": "application/json"},
+                timeout=3,
+            )
+            response.raise_for_status()
+            return response.json().get("operate_mode", "").upper()
+        except RequestException as e:
+            logger.warning(f"[RF2K-S] Could not retrieve operate mode: {e}")
+            return ""
+
+    def set_operate_mode(self, mode: str):
+        """Set RF2K-S operate mode only if different from current."""
+        try:
+            current_mode = self.get_operate_mode()
+            if current_mode == mode.upper():
+                logger.info(f"[RF2K-S] Amplifier already in {mode.upper()} mode. No action needed.")
+                return
+
             response = requests.put(
                 f"{self.base_url}/operate-mode",
                 json={"operate_mode": mode},
@@ -51,8 +95,12 @@ class RF2KSClient:
                 timeout=3,
             )
             response.raise_for_status()
-            print(f"[RF2K-S] Amplifier set to {mode} mode.")
+            logger.info(f"[RF2K-S] Amplifier successfully set to {mode.upper()} mode.")
+        except HTTPError as e:
+            logger.error(f"[ERROR] Failed to set RF2K-S to {mode.upper()} mode: {e}")
+            logger.error("Aborting...")
+            sys.exit(1)
         except Exception as e:
-            print(f"[ERROR] Failed to set RF2K-S to {mode} mode: {e}")
-            print("Aborting...")
+            logger.error(f"[ERROR] Unexpected error while setting RF2K-S to {mode.upper()} mode: {e}")
+            logger.error("Aborting...")
             sys.exit(1)

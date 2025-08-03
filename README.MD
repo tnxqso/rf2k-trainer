@@ -48,8 +48,10 @@ For each frequency segment, the program sets your radio accordingly and guides y
 - Calculates segment midpoints, detects edge gaps
 - Fully interactive loop for tuning each segment per band
 - Safety validation for tuning power and frequency settings
-
----
+- Supports RF2K-S fixed tuning segments
+- Calculates tuning points at segment centers for maximum reuse
+- Detects and tunes sub-segment gaps at band edges
+- Logs debug output and tuner data to separate files in `logs/` directory
 
 ## Requirements
 
@@ -184,6 +186,14 @@ python main.py info
 
 ---
 
+### Recommended First Step
+
+```bash
+python main.py info
+```
+
+This verifies that all segment alignment and tuning parameters are correct before tuning.
+
 ## Band Plan Overrides
 
 You **can** override `band_start`, `band_end`, and `tune_power` for each band in your `settings.yml` file – but overriding `band_start` and `band_end` is **not recommended** unless you fully understand the consequences.
@@ -191,7 +201,6 @@ You **can** override `band_start`, `band_end`, and `tune_power` for each band in
 Each band has a `segment_size` defined in the IARU band plan files (`iaru_region_1.yml`, `iaru_region_2.yml`, or `iaru_region_3.yml`). In order for the tuning segments to be generated correctly, `band_start` must follow this step size exactly.
 
 ### Important:
-- `band_start` must be in **exact multiples** of `segment_size` from the original value defined in the IARU region file.
 - `band_end` can be set freely, but **must be at least 600 Hz higher than `band_start`** to ensure a valid tuning range.
 
 ### Example: 6m band from IARU file
@@ -208,21 +217,13 @@ If you need to limit the band range, a valid override could be:
 ```yaml
 6m:
   enabled: true
-  band_start: 50101   # +101 kHz (1 segment step)
+  band_start: 50100
   band_end: 51900     # Any value >= band_start + 0.6 kHz
-```
-
-However, the following is **invalid** and will cause incorrect tuning:
-
-```yaml
-6m:
-  band_start: 50050  # Not a valid segment step (invalid)
 ```
 
 ### Summary
 
 - `tune_power` is safe to override per band.
-- `band_start` must follow exact `segment_size` steps from the IARU baseline.
 - `band_end` must be at least 600 Hz higher than `band_start`.
 - You are on your own if you override these. Make sure you understand what you're doing or you risk incomplete or incorrect tuning coverage.
 
@@ -244,6 +245,10 @@ You cannot override `segment_size`. This must match the tuner functionality.
   This provides more insight into the steps being executed and may help identify misconfiguration or communication issues.
 
 - Logging to file is **not yet implemented**, but will be added in a future release.
+
+- All debug and amplifier interaction logs are saved in `logs/rf2k-trainer<TIMESTAMP>.log`
+- Tuner data (segment tuning results) are written to CSV files in `logs/` after each tuning pass
+- Include both log types when requesting help — they are critical for reproducing issues
 
 ## Contributing
 
@@ -315,6 +320,10 @@ At this time, the RF2K-S amplifier requires the user to press the **"Tune & Stor
 A feature request has been submitted to the RF-Kit development team to add API support for automating **Tune & Store**. We hope this functionality will become available in a future firmware update.
 
 ---
+## Useul Stuff
+- [RFKIT API and SDK Documentation](https://rf-power.eu/wp-content/uploads/2024/12/RFKIT_api_doc_0_9_0.html)
+- [RF2K-S User Manual](https://rf-power.eu/wp-content/uploads/2025/06/RF2K-S_User_Manual_EN_06_25.pdf)
+- [SmartSDR TCPIP API](https://github.com/flexradio/smartsdr-api-docs/wiki/SmartSDR-TCPIP-API)
 
 ## Disclaimer
 

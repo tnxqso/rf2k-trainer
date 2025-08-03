@@ -8,56 +8,45 @@
 
 bands:
   160m:
-    segment_size: 9
     band_start: 1800
     band_end: 2000
 
   80m:
-    segment_size: 9
     band_start: 3500
     band_end: 4000
 
   60m:
-    segment_size: 9
     band_start: 5351.5
     band_end: 5405.0
 
   40m:
-    segment_size: 25
     band_start: 7000
     band_end: 7300
 
   30m:
-    segment_size: 25
     band_start: 10100
     band_end: 10150
 
   20m:
-    segment_size: 51
     band_start: 14000
     band_end: 14350
 
   17m:
-    segment_size: 51
     band_start: 18068
     band_end: 18168
 
   15m:
-    segment_size: 75
     band_start: 21000
     band_end: 21450
 
   12m:
-    segment_size: 75
     band_start: 24890
     band_end: 24990
 
   10m:
-    segment_size: 75
     band_start: 28000
     band_end: 29700
 
   6m:
-    segment_size: 101
     band_start: 50000
     band_end: 54000

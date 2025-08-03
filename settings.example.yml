@@ -6,7 +6,6 @@ defaults:
   # Band start and end frequencies can be overridden by band-specific settings
   iaru_region: 1 # Set to 1 for Europe, 2 for Americas, 3 for Asia-Pacific
   tune_power: 12 # Default tuning power used unless overridden by band-specific settings below
-  log_file: logs/tuning.log # Relative path to the log file for tuning operations
 
 # FlexRadio connection settings
 flexradio:
