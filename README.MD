@@ -203,7 +203,16 @@ You **can** override `band_start`, `band_end`, and `tune_power` for each band in
 Each band has a `segment_size` defined in the IARU band plan files (`iaru_region_1.yml`, `iaru_region_2.yml`, or `iaru_region_3.yml`). In order for the tuning segments to be generated correctly, `band_start` must follow this step size exactly.
 
 ### Important:
-- `band_end` can be set freely, but **must be at least 600 Hz higher than `band_start`** to ensure a valid tuning range.
+
+The RF2K-S amplifier uses **fixed frequency segments** for storing tuning data. These segment sizes and their exact center frequencies are hardcoded in the amplifier firmware and cannot be changed.
+
+- Each band has a defined `segment_size` (e.g. 9 kHz on 80m) and a known `first_segment_center`.
+- These segment centers **rarely align with the official IARU band edges**, but this tool calculates the optimal center-aligned tuning points automatically – no manual adjustment needed.
+- You do **not** need to align `band_start` or `band_end` to any specific step or grid.
+
+> **Why center tuning matters:**  
+> RF2K-S stores one tuning memory per segment. Tuning off-center may result in suboptimal coverage, and any new tuning within the same segment will overwrite previous values. This tool always tunes at the exact center of each segment to ensure best coverage and minimal conflicts.
+
 
 ### Example: 6m band from IARU file
 
@@ -220,7 +229,7 @@ If you need to limit the band range, a valid override could be:
 6m:
   enabled: true
   band_start: 50100
-  band_end: 51900     # Any value >= band_start + 0.6 kHz
+  band_end: 51900     # Any value >= band_start at least one segment size
 ```
 
 ### Summary
