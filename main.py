@@ -4,6 +4,8 @@ import sys
 from loghandler import setup_logging
 from typing import Dict, Any
 import math
+import platform
+import time
 
 # There are modules impoirted in main.py that use the logger, so we need to import them here
 # E.g. rf2ks_client, flexradio_comm, rf2ks_logger
@@ -15,6 +17,22 @@ GIT_PROJECT_URL = "https://github.com/tnxqso/rf2k-trainer"
 logger = None
 tuner_log_path = None
 debug_mode = False
+
+
+def beep(enabled=True):
+    if not enabled:
+        return
+    if platform.system() == "Windows":
+        import winsound
+        winsound.Beep(1000, 300)
+    else:
+        print("\a", end="")
+
+def countdown(seconds: int, message: str = "    →  Tuning next frequency") -> None:
+    for i in range(seconds, 0, -1):
+        print(f"{message} in {i} second(s)...", end="\r", flush=True)
+        time.sleep(1)
+    print(" " * 60, end="\r")  # Clear line
 
 def load_yaml_file(file_path: str) -> Dict[str, Any]:
     if not os.path.exists(file_path):
@@ -232,6 +250,31 @@ def print_band_info(band_name: str, band_data: dict):
 
     print("  " + ", ".join(freq_lines))
 
+def show_instructions(rf2k_enabled: bool, prompt_before_each_tune: bool, beep_enabled: bool):
+    print("\n[INSTRUCTIONS]\n")
+    print("1. Ensure your RF2K-S amplifier is **not sleeping**.")
+
+    print("2. Confirm that **'Standby' button on RF2K-S display is red**.")
+    if rf2k_enabled:
+        print("   However, the program will attempt to switch the amplifier to **Standby** automatically.")
+
+    print("3. For each tuning step:")
+
+    if beep_enabled:
+        print("   - A short beep will alert you when its time for you to activate the tuning process on RF2K-S.")
+
+    print("   - When tuning RF2K-S, either press the **'Tune & Store'** button")
+    print("     or manually tune the amplifier and press **'Store'** to save the result.")
+
+    if prompt_before_each_tune:
+        print("   - You will be prompted before tuning each frequency.")
+        print("     and you will have the option to skip.")
+    else:
+        print("   - Tuning steps will run automatically with a 4-second countdown.")
+
+    input("\nPress ENTER to continue...")
+
+
 def main():
     global logger, tuner_log_path
 
@@ -267,7 +310,8 @@ If no arguments are given, all enabled bands will be tuned interactively.
         return
 
     # Setup logging only in interactive or tuning mode
-    clear_old = "--clear-logs" in args or input("Do you want to delete old log files? (y/n): ").strip().lower() == 'y'
+    response = input("Do you want to delete old log files? (y/N): ").strip().lower() or "n"
+    clear_old = "--clear-logs" in args or response == 'y'
     logger, tuner_log_path = setup_logging(log_dir="logs", clear_old=clear_old, debug=debug_mode)
 
     # ✅ Logger is now initialized — safe to import modules that use it
@@ -288,6 +332,8 @@ If no arguments are given, all enabled bands will be tuned interactively.
     bands = load_combined_band_data(config, segment_config)
     radio_settings = config.get("flexradio", {})
     amp_settings = config.get("rf2k_s", {})
+    prompt_before_each_tune = config.get("defaults", {}).get("prompt_before_each_tune", False)
+    use_beep = config.get("defaults", {}).get("use_beep", True)
 
     rf2ks_url = f"http://{amp_settings.get('host')}:{amp_settings.get('port')}"
 
@@ -323,16 +369,12 @@ If no arguments are given, all enabled bands will be tuned interactively.
     else:
         logger.warning("[RF2K-S] Amplifier is not enabled, skipping RF2K-S operations.")
 
-    print("""
-[INSTRUCTIONS]
-Before proceeding with automatic tuning:
+    show_instructions(
+        rf2k_enabled=amp_settings.get("enabled", False),
+        prompt_before_each_tune = prompt_before_each_tune,
+        beep_enabled = use_beep
+    )
 
-1. Ensure your RF2K-S amplifier is **not sleeping**.
-2. Confirm that **'Operate' is NOT green** and **'Standby' is red** (we try to enforce STANDBY automatically).
-3. During each tune cycle, manually press **'Tune & Store'** on the RF2K-S.
-4. When tuning is complete on that frequency, press ENTER to stop.
-""")
-    input("Press ENTER to continue...")
 
     client.set_mode("CW")
 
@@ -354,21 +396,40 @@ Before proceeding with automatic tuning:
 
         client.set_tune_power(tune_power)
 
+
+
         for freq in tuning_freqs:
             client.set_frequency(freq / 1000)
-            user_input = input(f"\nFrequency {freq / 1000:.4f} MHz on {band_name} band, press ENTER to start tune or 's' to skip: ")
-            if user_input.strip().lower() == 's':
-                print("  -> Skipped")
-                continue
+
+            if prompt_before_each_tune:
+                user_input = input(
+                    f"\nWe are about to tune frequency {freq / 1000:.4f} MHz on {band_name} band, "
+                    "press ENTER to start or 's' to skip: "
+                )
+                if user_input.strip().lower() == 's':
+                    print("  -> Skipped")
+                    continue
+            else:
+                print(f"\nPreparing to tune {freq / 1000:.4f} MHz on {band_name} band...")
+                countdown(4)
 
             client.start_tune()
-            input("  -> Tuning... press ENTER to stop.")
+
+            beep(use_beep)
+            input(
+                "\n  → The radio is now tune transmitting on the selected frequency.\n"
+                "    Tune your RF2K-S amplifier (press 'Tune & Store' or make a manual tune and store it).\n"
+                "    Once tuning is on RF2K-S is complete, press ENTER to continue..."
+            )
             client.stop_tune()
+            print()
+            countdown(2, "    →  Waiting for RF2K-S to store tuning data")
 
             # Log tuner data if RF2K-S is enabled
             if amp_settings.get("enabled", False):
                 log_tuner_data(rf2ks_url)
 
+        print(f"\nDone!!!\n")
     client.disconnect()
 
 

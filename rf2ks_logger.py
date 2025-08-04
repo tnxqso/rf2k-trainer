@@ -26,15 +26,20 @@ def log_tuner_data(api_url: str):
 
         required_keys = ("tuned_frequency", "segment_size", "mode", "setup", "L", "C")
         if not all(k in data for k in required_keys):
-            logger.warning("Incomplete tuner data received from RF2K-S")
-            return
-
-        freq_kHz = data["tuned_frequency"]["value"]
-        seg_size = data["segment_size"]["value"]
-        mode = data["mode"]
-        setup = data["setup"]
-        L = data["L"]["value"]
-        C = data["C"]["value"]
+            logger.info(f"RF2K-S decided to bypass the tuner for the frequency {data["tuned_frequency"]["value"]}.")
+            freq_kHz = data["tuned_frequency"]["value"]
+            seg_size = data["segment_size"]["value"]
+            mode = data["mode"]
+            setup = data["setup"]
+            L = "N/A"
+            C = "N/A"
+        else:
+            freq_kHz = data["tuned_frequency"]["value"]
+            seg_size = data["segment_size"]["value"]
+            mode = data["mode"]
+            setup = data["setup"]
+            L = data["L"]["value"]
+            C = data["C"]["value"]
 
         if not _header_written:
             tuner_logger.info("freq_kHz,segment_size_kHz,mode,setup,L_nH,C_pF")

@@ -220,7 +220,7 @@ The RF2K-S amplifier uses **fixed frequency segments** for storing tuning data. 
   band_end: 52000
 ```
 
-If you need to limit the band range, a valid override could be:
+If you need to limit the band range, you may do so in `settings.yml`. A valid override could be:
 
 ```yaml
 6m:
@@ -234,8 +234,6 @@ If you need to limit the band range, a valid override could be:
 - `tune_power` is safe to override per band.
 - `band_end` must be at least a segment size larger than `band_start`.
 - You are on your own if you override these. Make sure you understand what you're doing or you risk incomplete or incorrect tuning coverage.
-
-You cannot override `segment_size`. This must match the tuner functionality.
 
 ---
 
