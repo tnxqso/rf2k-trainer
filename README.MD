@@ -200,8 +200,6 @@ This verifies that all segment alignment and tuning parameters are correct befor
 
 You **can** override `band_start`, `band_end`, and `tune_power` for each band in your `settings.yml` file – but overriding `band_start` and `band_end` is **not recommended** unless you fully understand the consequences.
 
-Each band has a `segment_size` defined in the IARU band plan files (`iaru_region_1.yml`, `iaru_region_2.yml`, or `iaru_region_3.yml`). In order for the tuning segments to be generated correctly, `band_start` must follow this step size exactly.
-
 ### Important:
 
 The RF2K-S amplifier uses **fixed frequency segments** for storing tuning data. These segment sizes and their exact center frequencies are hardcoded in the amplifier firmware and cannot be changed.
@@ -218,7 +216,6 @@ The RF2K-S amplifier uses **fixed frequency segments** for storing tuning data. 
 
 ```yaml
 6m:
-  segment_size: 101
   band_start: 50000
   band_end: 52000
 ```
@@ -235,7 +232,7 @@ If you need to limit the band range, a valid override could be:
 ### Summary
 
 - `tune_power` is safe to override per band.
-- `band_end` must be at least 600 Hz higher than `band_start`.
+- `band_end` must be at least a segment size larger than `band_start`.
 - You are on your own if you override these. Make sure you understand what you're doing or you risk incomplete or incorrect tuning coverage.
 
 You cannot override `segment_size`. This must match the tuner functionality.
