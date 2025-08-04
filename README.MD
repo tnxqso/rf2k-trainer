@@ -331,6 +331,15 @@ We're grateful for every contribution, large or small. Your help makes this proj
 
 ---
 
+## Project Independence
+
+RF2K-TRAINER is an independent open-source project created by and for the amateur radio community.
+
+This project is **not affiliated with**, **endorsed by**, or **officially supported by** RF-KIT, RF-POWER, or FlexRadio Systems.  
+All product names and trademarks mentioned are the property of their respective owners and are used strictly for interoperability and reference purposes.
+
+
+
 ## License
 
 MIT License
