@@ -18,7 +18,7 @@ def setup_logging(log_dir="logs", clear_old=False, debug=False):
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     general_log_file = os.path.join(log_dir, f"rf2k-trainer_{timestamp}.log")
-    tuner_result_file = os.path.join(log_dir, f"tuning-results_{timestamp}.log")
+    tuner_result_file = os.path.join(log_dir, f"tuning-results_{timestamp}.csv")
 
     # Main logger
     logging.basicConfig(

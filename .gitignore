@@ -2,6 +2,7 @@
 settings.yml
 PRIVATE_README.md
 *.log
+*.csv
 desktop.ini
 .vscode
 __pycache__
