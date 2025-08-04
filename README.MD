@@ -237,6 +237,32 @@ If you need to limit the band range, you may do so in `settings.yml`. A valid ov
 
 ---
 
+
+
+---
+
+## Windows Launcher Script (Optional)
+
+To simplify usage for less technical users, RF2K-TRAINER includes a ready-to-use `.bat` launcher script that presents a text-based menu of common options:
+
+![Launcher Script Screenshot](./assets/images/launcher_script.png)
+
+This script allows users to interact with RF2K-TRAINER without typing commands manually.
+
+### Create a Desktop Shortcut
+
+You may create a shortcut to the launcher for easier access:
+
+1. Locate the `rf2k-trainer.bat` file inside your `rf2k-trainer` folder (typically under `C:\Users\YourName\rf2k-trainer`)
+2. Right-click the file and choose **Send to → Desktop (create shortcut)**
+3. (Optional) Right-click the new shortcut and choose **Properties**
+   - Under the **Shortcut** tab, you may choose **Change Icon** to give it a custom look
+   - You can also set it to **Run: Minimized** if preferred
+4. Double-click the icon to launch RF2K-TRAINER
+
+This is the recommended way to run RF2K-TRAINER on Windows for casual or non-technical users.
+
+
 ## Debugging and Troubleshooting
 
 - Verify your FlexRadio IP address and port in `settings.yml` (default: `4992`)
