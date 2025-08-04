@@ -194,6 +194,8 @@ python main.py info
 
 This verifies that all segment alignment and tuning parameters are correct before tuning.
 
+![Example: Band Info Output](./assets/images/band_info.png)
+
 ## Band Plan Overrides
 
 You **can** override `band_start`, `band_end`, and `tune_power` for each band in your `settings.yml` file – but overriding `band_start` and `band_end` is **not recommended** unless you fully understand the consequences.
