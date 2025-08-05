@@ -3,11 +3,18 @@ import threading
 import re
 import os
 from loghandler import get_logger
-logger = get_logger()
 
+logger = None
+
+class FlexRadioError(Exception):
+    """Custom exception for FlexRadioClient-related errors."""
+    pass
 
 class FlexRadioClient:
     def __init__(self, host, port, debug=False):
+        global logger
+        if logger is None:
+            logger = get_logger()
         self.host = host
         self.port = port
         self.sock = None
@@ -28,7 +35,7 @@ class FlexRadioClient:
             self._initial_handshake()
         except Exception as e:
             logger.error(f"Connection error: {e}")
-            raise ConnectionError(f"Could not connect to FlexRadio: {e}")
+            raise FlexRadioError(f"Could not connect to FlexRadio: {e}")
 
     def _initial_handshake(self):
         seq = self._send_raw_command("sub slice all")
@@ -62,7 +69,7 @@ class FlexRadioClient:
     def send_command(self, command):
         if not self.connected:
             logger.error("send_command called while not connected")
-            raise RuntimeError("TCP socket is not connected")
+            raise FlexRadioError("TCP socket is not connected")
         with self.lock:
             seq = self.seq
             self.seq += 1
@@ -78,7 +85,7 @@ class FlexRadioClient:
     def _send_raw_command(self, command):
         if not self.connected:
             logger.error("_send_raw_command called while not connected")
-            raise RuntimeError("TCP socket is not connected")
+            raise FlexRadioError("TCP socket is not connected")
         with self.lock:
             seq = self.seq
             self.seq += 1
@@ -92,7 +99,7 @@ class FlexRadioClient:
             chunk = self.sock.recv(4096)
             if not chunk:
                 logger.error("Socket closed by FlexRadio")
-                raise ConnectionError("Socket connection closed by FlexRadio")
+                raise FlexRadioError("Socket connection closed by FlexRadio")
             self.buffer += chunk
         line, self.buffer = self.buffer.split(b"\n", 1)
         return line.decode().strip()

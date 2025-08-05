@@ -18,12 +18,15 @@
   - [Linux/macOS Installation](#linuxmacos-installation)
 - [Configuration](#configuration)
 - [Usage](#usage)
+- [Real-World Tuning Time (Example)](#real-world-tuning-time-example)
 - [Band Plan Overrides](#band-plan-overrides)
 - [Debugging and Troubleshooting](#debugging-and-troubleshooting)
+- [Upgrade Instructions](#upgrade-instructions)
 - [Contributing](#contributing)
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
 - [API Note: "Tune & Store"](#api-note-tune--store)
+- [Useful Stuff](#useful-stuff)
 - [Disclaimer](#disclaimer)
 
 ---
@@ -159,9 +162,31 @@ Each band can be enabled, disabled, or override power and band limits if necessa
 
 ---
 
+
 ## Usage
 
-### Full automatic tuning
+```bash
+python main.py [bands ...] [--debug] [--info] [--clear-logs]
+```
+
+### Examples
+
+```bash
+python main.py 20 40
+python main.py 80m 160m --debug --clear-logs
+python main.py --info
+```
+
+### Arguments
+
+- `bands` – One or more bands to tune (e.g., `20`, `40m`, `160m`). If omitted, all enabled bands from `settings.yml` are used.
+- `--debug` – Enables debug logging
+- `--info` – Shows band tuning info without performing tuning
+- `--clear-logs` – Deletes old logs on startup
+- `--help` – Shows usage help
+- `--version` – Displays program version
+
+## Full automatic tuning
 
 ```bash
 python main.py
@@ -178,10 +203,10 @@ python main.py 40m
 
 Only tunes that band if it's enabled.
 
-### Show band info without tuning
+### Show band segments info without tuning
 
 ```bash
-python main.py info
+python main.py --info
 ```
 
 ---
@@ -189,12 +214,27 @@ python main.py info
 ### Recommended First Step
 
 ```bash
-python main.py info
+python main.py --info
 ```
 
 This verifies that all segment alignment and tuning parameters are correct before tuning.
 
 ![Example: Band Info Output](./assets/images/band_info.png)
+
+
+---
+
+## Real-World Tuning Time (Example)
+
+> 💡 Curious how long the tuning process takes?
+
+In a real-world test, tuning all enabled bands **except 160m** and **only the lower half of 6m**, took **approximately 18 minutes**.  
+This included several retunes on certain frequencies, since occasionally a second tuning pass produced better SWR results.
+
+This is a representative example using a FlexRadio and RF2K-S combo with segment logging enabled.
+
+---
+
 
 ## Band Plan Overrides
 
@@ -235,11 +275,9 @@ If you need to limit the band range, you may do so in `settings.yml`. A valid ov
 - `band_end` must be at least a segment size larger than `band_start`.
 - You are on your own if you override these. Make sure you understand what you're doing or you risk incomplete or incorrect tuning coverage.
 
----
-
-
 
 ---
+
 
 ## Windows Launcher Script (Optional)
 
@@ -281,6 +319,30 @@ This is the recommended way to run RF2K-TRAINER on Windows for casual or non-tec
 - All debug and amplifier interaction logs are saved in `logs/rf2k-trainer<TIMESTAMP>.log`
 - Tuner data (segment tuning results) are written to CSV files in `logs/` after each tuning pass
 - Include both log types when requesting help — they are critical for reproducing issues
+
+## Upgrade Instructions
+
+To upgrade RF2K-TRAINER to the latest version:
+
+1. Pull the latest version from GitHub (or copy new files manually):
+   ```bash
+   git pull origin main
+   ```
+
+2. If dependencies have changed (check `requirements.txt`), update them:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. (Optional) Backup your YAML configuration file:
+   - `settings.yml`
+
+4. Run the program as usual:
+   ```bash
+   python main.py --info
+   ```
+
+> Tip: See [`CHANGELOG.MD`](./CHANGELOG.MD) for specific upgrade notes or breaking changes.
 
 ## Contributing
 
@@ -361,7 +423,7 @@ At this time, the RF2K-S amplifier requires the user to press the **"Tune & Stor
 A feature request has been submitted to the RF-Kit development team to add API support for automating **Tune & Store**. We hope this functionality will become available in a future firmware update.
 
 ---
-## Useul Stuff
+## Usfeul Stuff
 - [RFKIT API and SDK Documentation](https://rf-power.eu/wp-content/uploads/2024/12/RFKIT_api_doc_0_9_0.html)
 - [RF2K-S User Manual](https://rf-power.eu/wp-content/uploads/2025/06/RF2K-S_User_Manual_EN_06_25.pdf)
 - [SmartSDR TCPIP API](https://github.com/flexradio/smartsdr-api-docs/wiki/SmartSDR-TCPIP-API)

@@ -30,7 +30,7 @@ python main.py
 goto end
 
 :info
-python main.py info
+python main.py --info
 goto end
 
 :band
@@ -39,7 +39,12 @@ python main.py %bands%
 goto end
 
 :debug
-python main.py --debug
+set /p bands=Enter band(s) for debug (or leave blank for all): 
+if "%bands%"=="" (
+    python main.py --debug
+) else (
+    python main.py --debug %bands%
+)
 goto end
 
 :clear

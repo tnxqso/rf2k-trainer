@@ -1,23 +1,76 @@
-import yaml
-import os
-import sys
-from loghandler import setup_logging
-from typing import Dict, Any
+import argparse
 import math
+import os
 import platform
+import sys
 import time
+import yaml
 
-# There are modules impoirted in main.py that use the logger, so we need to import them here
-# E.g. rf2ks_client, flexradio_comm, rf2ks_logger
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Set
+
+from flexradio_comm import FlexRadioClient, FlexRadioError
+from rf2ks_client import RF2KSClient, RF2KSClientError
 
 PROGRAM_NAME = "RF2K-Trainer"
-VERSION = "0.8"
+VERSION = "0.9.0"
 GIT_PROJECT_URL = "https://github.com/tnxqso/rf2k-trainer"
 
 logger = None
 tuner_log_path = None
 debug_mode = False
 
+@dataclass
+class AppContext:
+    logger: Any 
+    config: Dict[str, Any]
+    debug_mode: bool
+    prompt_before_each_tune: bool
+    use_beep: bool
+    tuner_log_path: Optional[str]
+    rf2ks_url: str
+    segment_config: Dict[str, Any]
+    bands: Dict[str, Dict[str, Any]]
+    selected_bands: Set[str]
+    radio_settings: Dict[str, Any]
+    amp_settings: Dict[str, Any]
+
+def create_context(config: Dict[str, Any], segment_config: Dict[str, Any], bands_args: List[str], logger, tuner_log_path, debug_mode: bool) -> AppContext:
+    bands = load_combined_band_data(config, segment_config)
+    selected_bands = {
+        arg if arg.endswith("m") else f"{arg}m"
+        for arg in bands_args
+        if arg.isdigit() or arg.endswith("m")
+    }
+
+    ctx = AppContext(
+        config=config,
+        bands=bands,
+        rf2ks_url=None,  # Will be set below
+        tuner_log_path=tuner_log_path,
+        logger=logger,
+        debug_mode=debug_mode,
+        selected_bands=selected_bands,
+        prompt_before_each_tune=config.get("defaults", {}).get("prompt_before_each_tune", False),
+        use_beep=config.get("defaults", {}).get("use_beep", True),
+        segment_config=segment_config,
+        radio_settings=config.get("flexradio", {}),
+        amp_settings=config.get("rf2k_s", {})
+    )
+
+    ctx.rf2ks_url = f"http://{ctx.amp_settings.get('host')}:{ctx.amp_settings.get('port')}"
+
+    if selected_bands:
+        invalid = [b for b in selected_bands if b not in bands]
+        if invalid:
+            logger.error(f"[ERROR] The following bands were not found or not enabled: {', '.join(invalid)}")
+            sys.exit(1)
+        ctx.bands = {k: v for k, v in bands.items() if k in selected_bands}
+        logger.info(f"Selected bands: {', '.join(ctx.bands.keys())}")
+    else:
+        logger.info(f"Using all enabled bands: {', '.join(ctx.bands.keys())}")
+
+    return ctx
 
 def beep(enabled=True):
     if not enabled:
@@ -250,136 +303,52 @@ def print_band_info(band_name: str, band_data: dict):
 
     print("  " + ", ".join(freq_lines))
 
-def show_instructions(rf2k_enabled: bool, prompt_before_each_tune: bool, beep_enabled: bool):
-    print("\n[INSTRUCTIONS]\n")
-    print("1. Ensure your RF2K-S amplifier is **not sleeping**.")
+def show_instructions(ctx: AppContext):
+    """
+    Display detailed instructions for the tuning procedure based on the configuration context.
+    """
+    print("\nINSTRUCTIONS:\n")
 
-    print("2. Confirm that **'Standby' button on RF2K-S display is red**.")
-    if rf2k_enabled:
-        print("   However, the program will attempt to switch the amplifier to **Standby** automatically.")
-
-    print("3. For each tuning step:")
-
-    if beep_enabled:
-        print("   - A short beep will alert you when its time for you to activate the tuning process on RF2K-S.")
-
-    print("   - When tuning RF2K-S, either press the **'Tune & Store'** button")
-    print("     or manually tune the amplifier and press **'Store'** to save the result.")
-
-    if prompt_before_each_tune:
-        print("   - You will be prompted before tuning each frequency.")
-        print("     and you will have the option to skip.")
+    if ctx.amp_settings.get("enabled", False):
+        print("1. Your RF2K-S amplifier is enabled and will be used for tuning.")
+        print("2. The program will attempt to switch the amplifier to Standby automatically.")
+        print("3. You will be asked to confirm each tuning step before proceeding.")
+        print("4. After tuning each frequency, the RF2K-S tuner data will be logged if logging is enabled.\n")
     else:
-        print("   - Tuning steps will run automatically with a 4-second countdown.")
+        print("1. RF2K-S amplifier is not enabled.")
+        print("2. You will still be prompted before each tuning step if that is enabled in the config.\n")
 
-    input("\nPress ENTER to continue...")
+    print("Radio connection settings:")
+    print(f"  - Host: {ctx.radio_settings.get('host')}")
+    print(f"  - Port: {ctx.radio_settings.get('port')}\n")
 
+    print("Bands selected for tuning:")
+    for band in sorted(ctx.selected_bands):
+        band_cfg = ctx.bands.get(band)
+        if band_cfg:
+            print(f"  - {band}: {band_cfg['band_start']} Hz to {band_cfg['band_end']} Hz")
+    print()
 
-def main():
-    global logger, tuner_log_path
-
-    args = [arg.lower() for arg in sys.argv[1:]]
-    debug_mode = "--debug" in args
-    info_mode = "info" in args
-    help_mode = "-h" in args or "--help" in args
-
-    if help_mode:
-        print("""
-Usage: python main.py [--debug] [--clear-logs] [band1 band2 ... | info]
-
-Arguments:
-  --debug        Enables verbose debug logging
-  --clear-logs   Deletes old log files on startup
-  info           Show calculated tuning segments for all bands
-  <band>         One or more bands to process, e.g. '60' or '60m'
-
-If no arguments are given, all enabled bands will be tuned interactively.
-""")
-        return
-
-    if info_mode:
-        config = load_yaml_file("settings.yml")
-        segment_config = load_rf2k_segment_alignment("rf2k_segment_alignment.yml")
-        bands = load_combined_band_data(config, segment_config)
-
-        print(f"{PROGRAM_NAME} - v{VERSION} - Band Information")
-
-        for band_name, band_data in bands.items():
-            print_band_info(band_name, band_data)
-
-        return
-
-    # Setup logging only in interactive or tuning mode
-    response = input("Do you want to delete old log files? (y/N): ").strip().lower() or "n"
-    clear_old = "--clear-logs" in args or response == 'y'
-    logger, tuner_log_path = setup_logging(log_dir="logs", clear_old=clear_old, debug=debug_mode)
-
-    # ✅ Logger is now initialized — safe to import modules that use it
-    from flexradio_comm import FlexRadioClient
-    from rf2ks_client import RF2KSClient
-    from rf2ks_logger import log_tuner_data
-
-    logger.info(f"""
-    =================================================================
-    {PROGRAM_NAME} - v{VERSION}
-    Sequential HF Band Tuning Utility for RF2K-S Amplifiers
-    Github repo: {GIT_PROJECT_URL}
-    =================================================================
-    """)
-
-    config = load_yaml_file("settings.yml")
-    segment_config = load_rf2k_segment_alignment("rf2k_segment_alignment.yml")
-    bands = load_combined_band_data(config, segment_config)
-    radio_settings = config.get("flexradio", {})
-    amp_settings = config.get("rf2k_s", {})
-    prompt_before_each_tune = config.get("defaults", {}).get("prompt_before_each_tune", False)
-    use_beep = config.get("defaults", {}).get("use_beep", True)
-
-    rf2ks_url = f"http://{amp_settings.get('host')}:{amp_settings.get('port')}"
-
-    selected_bands = {arg if arg.endswith("m") else f"{arg}m"
-                      for arg in args
-                      if arg.isdigit() or arg.endswith("m")}
-
-    if selected_bands:
-        invalid = [b for b in selected_bands if b not in bands]
-        if invalid:
-            logger.error(f"[ERROR] The following bands were not found or not enabled: {', '.join(invalid)}")
-            return
-        bands = {k: v for k, v in bands.items() if k in selected_bands}
-
-    host = radio_settings.get("host", "localhost")
-    port = radio_settings.get("port", 4992)
-    logger.info(f"\nConnecting to FlexRadio at {host}:{port}...")
-
-    try:
-        client = FlexRadioClient(host, port)
-        client.connect()
-    except Exception as e:
-        logger.error(f"Connection failed: {e}")
-        return
-
-    logger.info("Connection to Flexradio established.\n")
-
-    rf2ks = None
-    if amp_settings.get("enabled", False):
-        rf2ks = RF2KSClient(config)
-        rf2ks.fetch_info()
-        rf2ks.set_operate_mode("STANDBY")
+    if ctx.prompt_before_each_tune:
+        print("You will be asked to press ENTER before each tuning step.")
     else:
-        logger.warning("[RF2K-S] Amplifier is not enabled, skipping RF2K-S operations.")
+        print("Tuning will proceed automatically with countdown prompts.")
 
-    show_instructions(
-        rf2k_enabled=amp_settings.get("enabled", False),
-        prompt_before_each_tune = prompt_before_each_tune,
-        beep_enabled = use_beep
-    )
+    if ctx.use_beep:
+        print("A beep will signal when it's time to tune your amplifier.")
 
+    print("\nMake sure your radio and amplifier are powered on and connected correctly before starting.")
+
+def run_tuning_loop(client: FlexRadioClient, ctx: AppContext):
+    """
+    Execute tuning loop per band and frequency, with logging and user prompts.
+    """
+    from rf2ks_logger import log_tuner_data  # Must be imported after logger setup
 
     client.set_mode("CW")
 
-    for band_name, band_data in bands.items():
-        logger.info(f"\n=== Band: {band_name} ===")
+    for band_name, band_data in ctx.bands.items():
+        ctx.logger.info(f"\n=== Band: {band_name} ===")
 
         band_start = band_data["band_start"]
         band_end = band_data["band_end"]
@@ -395,13 +364,12 @@ If no arguments are given, all enabled bands will be tuned interactively.
         )
 
         client.set_tune_power(tune_power)
-
-
+        print(f"Setting tune power to {tune_power} W for {band_name} band...")
 
         for freq in tuning_freqs:
             client.set_frequency(freq / 1000)
 
-            if prompt_before_each_tune:
+            if ctx.prompt_before_each_tune:
                 user_input = input(
                     f"\nWe are about to tune frequency {freq / 1000:.4f} MHz on {band_name} band, "
                     "press ENTER to start or 's' to skip: "
@@ -415,7 +383,7 @@ If no arguments are given, all enabled bands will be tuned interactively.
 
             client.start_tune()
 
-            beep(use_beep)
+            beep(ctx.use_beep)
             input(
                 "\n  → The radio is now tune transmitting on the selected frequency.\n"
                 "    Tune your RF2K-S amplifier (press 'Tune & Store' or make a manual tune and store it).\n"
@@ -426,12 +394,99 @@ If no arguments are given, all enabled bands will be tuned interactively.
             countdown(2, "    →  Waiting for RF2K-S to store tuning data")
 
             # Log tuner data if RF2K-S is enabled
-            if amp_settings.get("enabled", False):
-                log_tuner_data(rf2ks_url)
+            if ctx.amp_settings.get("enabled", False):
+                log_tuner_data(ctx.rf2ks_url)
 
-        print(f"\nDone!!!\n")
+        print(f"\nDone.\n")
+
     client.disconnect()
 
 
+def main():
+    parser = argparse.ArgumentParser(description="RF2K-Trainer: Tune RF2K-S amplifier by band")
+    parser.add_argument("bands", nargs="*", help="Bands to tune, e.g. 20m 40m or 20 40")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    parser.add_argument("--clear-logs", action="store_true", help="Delete old log files on startup")
+    parser.add_argument("--info", action="store_true", help="Show band tuning information and exit")
+    args = parser.parse_args()
+
+    global debug_mode
+    debug_mode = args.debug
+
+    config = load_yaml_file("settings.yml")
+    segment_config = load_rf2k_segment_alignment("rf2k_segment_alignment.yml")
+
+    if not args.info:
+        response = input("Do you want to delete old log files? (y/N): ").strip().lower() or "n"
+    else:
+        response = "n"
+
+    clear_old = args.clear_logs or response == 'y'
+
+    from loghandler import setup_logging
+    logger, tuner_log_path = setup_logging(log_dir="logs", clear_old=clear_old, debug=debug_mode)
+
+    ctx = create_context(
+        config=config,
+        segment_config=segment_config,
+        bands_args=args.bands,
+        logger=logger,
+        tuner_log_path=tuner_log_path,
+        debug_mode=debug_mode
+    )
+
+    if args.info:
+        print(f"{PROGRAM_NAME} - v{VERSION} - Band Information")
+
+        for band_name, band_data in ctx.bands.items():
+            print_band_info(band_name, band_data)
+
+        return
+
+    logger.info(f"""
+    =================================================================
+    {PROGRAM_NAME} - v{VERSION}
+    Sequential HF Band Tuning Utility for RF2K-S Amplifiers
+    Github repo: {GIT_PROJECT_URL}
+    =================================================================
+    """)
+
+    host = ctx.radio_settings.get("host", "localhost")
+    port = ctx.radio_settings.get("port", 4992)
+    logger.info(f"\nConnecting to FlexRadio at {host}:{port}...")
+
+    try:
+        client = FlexRadioClient(host, port)
+        client.connect()
+    except Exception as e:
+        logger.error(f"Connection failed: {e}")
+        return
+
+    logger.info("Connection to Flexradio established.\n")
+
+    rf2ks = None
+    if ctx.amp_settings.get("enabled", False):
+        rf2ks = RF2KSClient(ctx.config)
+        rf2ks.fetch_info()
+        rf2ks.set_operate_mode("STANDBY")
+    else:
+        logger.warning("[RF2K-S] Amplifier is not enabled, skipping RF2K-S operations.")
+
+    show_instructions(ctx)
+
+
+    run_tuning_loop(client, ctx)
+
+
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except RF2KSClientError as e:
+        logger.error(f"[FATAL] RF2K-S communication failed: {e}")
+        sys.exit(1)
+    except FlexRadioError as e:
+        logger.error(f"[FATAL] FlexRadio communication failed: {e}")
+        sys.exit(1)
+    except Exception as e:
+        logger.exception("[FATAL] Unexpected error occurred")
+        sys.exit(1)

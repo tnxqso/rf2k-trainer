@@ -1,11 +1,18 @@
-import sys
 import requests
-from requests.exceptions import RequestException, HTTPError
+from requests.exceptions import RequestException, HTTPError, Timeout, ConnectionError
 from loghandler import get_logger
-logger = get_logger()
+
+logger = None
+
+class RF2KSClientError(Exception):
+    """Custom exception class for RF2KSClient errors."""
+    pass
 
 class RF2KSClient:
     def __init__(self, config):
+        global logger
+        if logger is None:
+            logger = get_logger()
         amp_cfg = config.get("rf2k_s", {})
         self.enabled = amp_cfg.get("enabled", False)
         self.host = amp_cfg.get("host")
@@ -18,9 +25,7 @@ class RF2KSClient:
 
         try:
             response = requests.get(f"{self.base_url}/info", timeout=8)
-            if response.status_code != 200:
-                logger.error(f"[RF2K-S] HTTP {response.status_code} - {response.reason}")
-                raise ConnectionError(f"Failed to connect to RF2K-S at {self.base_url}")
+            response.raise_for_status()
 
             data = response.json()
 
@@ -36,35 +41,29 @@ class RF2KSClient:
             logger.info(f"  FW GUI:     {fw_gui}")
             logger.info(f"  FW Ctrl:    {fw_ctrl}")
 
-        except requests.exceptions.Timeout:
+        except Timeout:
             logger.error("[ERROR] Connection to RF2K-S timed out.")
-            logger.error("Aborting...")
-            sys.exit(1)
+            raise RF2KSClientError("Connection to RF2K-S timed out.")
 
-        except requests.exceptions.ConnectionError:
+        except ConnectionError:
             logger.error("[ERROR] Could not connect to RF2K-S.")
-            logger.error("Aborting...")
-            sys.exit(1)
+            raise RF2KSClientError("Could not connect to RF2K-S.")
 
-        except requests.exceptions.HTTPError as e:
+        except HTTPError as e:
             logger.error(f"[ERROR] HTTP error while fetching RF2K-S info: {e}")
-            logger.error("Aborting...")
-            sys.exit(1)
+            raise RF2KSClientError(f"HTTP error while fetching RF2K-S info: {e}")
 
-        except requests.exceptions.RequestException as e:
+        except RequestException as e:
             logger.error(f"[ERROR] Unexpected error while communicating with RF2K-S: {e}")
-            logger.error("Aborting...")
-            sys.exit(1)
+            raise RF2KSClientError(f"Unexpected communication error with RF2K-S: {e}")
 
         except ValueError:
             logger.error("[ERROR] Failed to parse JSON response from RF2K-S.")
-            logger.error("Aborting...")
-            sys.exit(1)
+            raise RF2KSClientError("Failed to parse JSON response from RF2K-S.")
 
         except Exception as e:
             logger.error(f"[ERROR] Unexpected exception: {e}")
-            logger.error("Aborting...")
-            sys.exit(1)
+            raise RF2KSClientError(f"Unexpected exception: {e}")
 
     def get_operate_mode(self) -> str:
         """Return current RF2K-S operate mode (e.g., 'OPERATE', 'STANDBY')."""
@@ -78,7 +77,7 @@ class RF2KSClient:
             return response.json().get("operate_mode", "").upper()
         except RequestException as e:
             logger.warning(f"[RF2K-S] Could not retrieve operate mode: {e}")
-            return ""
+            raise RF2KSClientError(f"Could not retrieve operate mode: {e}")
 
     def set_operate_mode(self, mode: str):
         """Set RF2K-S operate mode only if different from current."""
@@ -98,9 +97,10 @@ class RF2KSClient:
             logger.info(f"[RF2K-S] Amplifier successfully set to {mode.upper()} mode.")
         except HTTPError as e:
             logger.error(f"[ERROR] Failed to set RF2K-S to {mode.upper()} mode: {e}")
-            logger.error("Aborting...")
-            sys.exit(1)
+            raise RF2KSClientError(f"Failed to set RF2K-S to {mode.upper()} mode: {e}")
+        except RequestException as e:
+            logger.error(f"[ERROR] Request error while setting RF2K-S to {mode.upper()} mode: {e}")
+            raise RF2KSClientError(f"Request error while setting RF2K-S to {mode.upper()} mode: {e}")
         except Exception as e:
             logger.error(f"[ERROR] Unexpected error while setting RF2K-S to {mode.upper()} mode: {e}")
-            logger.error("Aborting...")
-            sys.exit(1)
+            raise RF2KSClientError(f"Unexpected error while setting RF2K-S to {mode.upper()} mode: {e}")
