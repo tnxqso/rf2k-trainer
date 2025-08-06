@@ -139,31 +139,33 @@ FlexRadio users can skip this step.
 
 - Download the Windows installer from:  
   [`Hamlib on SourceForge`](https://sourceforge.net/projects/hamlib/files/hamlib/)  
-  e.g. `hamlib-w64-4.6.4.exe`
+  Example file: `hamlib-w64-4.6.4.exe` (version may vary)
 
-- Run the installer and accept the default location:  
-  `C:\Program Files\hamlib-w64-4.6.4`
+- Run the installer and accept the default installation folder, typically:  
+  ```
+  C:\Program Files\hamlib-w64-<version>
+  ```
+  ⚠️ The exact folder name depends on the Hamlib version you're installing. For example:  
+  `C:\Program Files\hamlib-w64-4.6.4`. Take note of this path — you’ll need it for the next step.
 
-- ⚠️ **Important:** The installer does not automatically update your `PATH`.  
-  You must add the Hamlib `bin\` directory to your system `PATH` manually.
+- ⚠️ **Important:** The installer does **not** update your system `PATH` automatically.  
+  You must manually add the path to Hamlib’s `bin\` directory to your system environment variables.
 
-  Example path to add:
+  Example path to add (adjust for your version):
   ```
   C:\Program Files\hamlib-w64-4.6.4\bin
   ```
 
-  📘 [How to add a folder to your PATH](https://geek-university.com/windows/add-a-folder-to-windows-path/)
+  📘 [How to add a folder to your PATH (with screenshots)](https://stackoverflow.com/questions/44272416/add-a-folder-to-the-path-environment-variable-in-windows-10-with-screenshots/)
 
-- To manually start `rigctld`, open PowerShell:
+- To manually start `rigctld`, open PowerShell and run:
   ```powershell
   rigctld -m <model> -r <COMx> -t 4532
   ```
-  Replace `<model>` with the model number from `rigctl -l`  
-  Replace `<COMx>` with your radio's COM port (e.g. `COM4`)
+  Replace `<model>` with your radio’s model number (see `rigctl -l`)  
+  Replace `<COMx>` with the correct COM port your radio uses (e.g. `COM4`)
 
-> ℹ️ Tip: See `README.w64-bin.txt` in the install folder for additional Windows-specific notes.
-
----
+> ℹ️ Tip: The file `README.w64-bin.txt` in the Hamlib installation directory contains extra instructions and helpful troubleshooting notes specific to Windows users.
 
 #### 4. Open PowerShell  
 Press `Windows + R`, type `powershell`, press Enter
