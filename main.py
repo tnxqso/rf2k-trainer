@@ -13,7 +13,7 @@ from flexradio_comm import FlexRadioClient, FlexRadioError
 from rf2ks_client import RF2KSClient, RF2KSClientError
 
 PROGRAM_NAME = "RF2K-Trainer"
-VERSION = "0.9.0"
+VERSION = "0.9.1"
 GIT_PROJECT_URL = "https://github.com/tnxqso/rf2k-trainer"
 
 logger = None
