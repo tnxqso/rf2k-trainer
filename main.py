@@ -20,6 +20,10 @@ logger = None
 tuner_log_path = None
 debug_mode = False
 
+class ConfigurationError(Exception):
+    """Raised when the configuration is invalid or unsafe."""
+    pass
+
 @dataclass
 class AppContext:
     logger: Any 
@@ -138,6 +142,29 @@ def load_combined_band_data(settings: Dict[str, Any], segment_alignment: Dict[st
         }
 
     return combined
+
+def validate_tune_power(band: str, power: float):
+    if not (4 <= power <= 39):
+        raise ConfigurationError(
+            f"tune_power for '{band}' is set to {power} W — "
+            f"must be between 4 and 39 W as required by RF2K-S."
+        )
+    if power < 10:
+        logger.warning(
+            f"[WARNING] tune_power for '{band}' is only {power} W — "
+            f"RF2K-S recommends at least 10 W for accurate tuning."
+        )
+
+
+def validate_all_tune_power(ctx: AppContext):
+    global_tune_power = ctx.config.get("defaults", {}).get("tune_power", 0)
+    validate_tune_power("global defaults", global_tune_power)
+
+    for band_name, band_cfg in ctx.bands.items():
+        if not band_cfg.get("enabled", False):
+            continue
+        tune_power = band_cfg.get("tune_power", global_tune_power)
+        validate_tune_power(band_name, tune_power)
 
 def calculate_first_segment_center(
     band_start: float,
@@ -418,6 +445,7 @@ def run_tuning_loop(client: FlexRadioClient, ctx: AppContext):
 
 
 def main():
+    global logger
     parser = argparse.ArgumentParser(description="RF2K-Trainer: Tune RF2K-S amplifier by band")
     parser.add_argument("bands", nargs="*", help="Bands to tune, e.g. 20m 40m or 20 40")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
@@ -449,6 +477,9 @@ def main():
         tuner_log_path=tuner_log_path,
         debug_mode=debug_mode
     )
+
+    logger.info(f"Logger is initialized")
+    validate_all_tune_power(ctx)
 
     if args.info:
         print(f"{PROGRAM_NAME} - v{VERSION} - Band Information")
@@ -502,6 +533,9 @@ if __name__ == "__main__":
     except FlexRadioError as e:
         logger.error(f"[FATAL] FlexRadio communication failed: {e}")
         sys.exit(1)
+    except ConfigurationError as e:
+        logger.error(f"[CONFIG ERROR] {e}")
+        sys.exit(1)        
     except Exception as e:
         logger.exception("[FATAL] Unexpected error occurred")
         sys.exit(1)
