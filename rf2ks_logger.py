@@ -3,10 +3,10 @@
 import requests
 from loghandler import get_logger, get_tuner_logger
 
-logger = get_logger()
-tuner_logger = get_tuner_logger()
+logger = None
+tuner_logger = None
 
-_header_written = False  # <-- privat flagga
+_header_written = False
 
 def log_tuner_data(api_url: str):
     """
@@ -14,7 +14,12 @@ def log_tuner_data(api_url: str):
     Format: freq_kHz,segment_size_kHz,mode,setup,L_nH,C_pF
     """
 
-    global _header_written
+    global _header_written, logger, tuner_logger
+    if logger is None:
+        logger = get_logger()    
+    if tuner_logger is None:
+        tuner_logger = get_tuner_logger()
+
     tuner_endpoint = f"{api_url.rstrip('/')}/tuner"
 
     try:

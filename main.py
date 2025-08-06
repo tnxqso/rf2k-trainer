@@ -11,9 +11,10 @@ from typing import Any, Dict, List, Optional, Set
 
 from flexradio_comm import FlexRadioClient, FlexRadioError
 from rf2ks_client import RF2KSClient, RF2KSClientError
+from rf2ks_logger import log_tuner_data
 
 PROGRAM_NAME = "RF2K-Trainer"
-VERSION = "0.9.1"
+VERSION = "0.9.001"
 GIT_PROJECT_URL = "https://github.com/tnxqso/rf2k-trainer"
 
 logger = None
@@ -385,7 +386,9 @@ def run_tuning_loop(client: FlexRadioClient, ctx: AppContext):
     """
     Execute tuning loop per band and frequency, with logging and user prompts.
     """
-    from rf2ks_logger import log_tuner_data  # Must be imported after logger setup
+
+    start_time = time.time()
+    total_segments = 0
 
     client.set_mode("CW")
 
@@ -432,6 +435,8 @@ def run_tuning_loop(client: FlexRadioClient, ctx: AppContext):
                 "    Once tuning is on RF2K-S is complete, press ENTER to continue..."
             )
             client.stop_tune()
+            total_segments += 1
+
             print()
             countdown(2, "    →  Waiting for RF2K-S to store tuning data")
 
@@ -439,7 +444,16 @@ def run_tuning_loop(client: FlexRadioClient, ctx: AppContext):
             if ctx.amp_settings.get("enabled", False):
                 log_tuner_data(ctx.rf2ks_url)
 
-        print(f"\nDone.\n")
+        elapsed = time.time() - start_time
+        avg_per_segment = elapsed / total_segments if total_segments else 0
+
+        print("\n=== Summary ===")
+        print(f"  Bands tuned       : {len(ctx.bands)}")
+        print(f"  Total segments    : {total_segments}")
+        print(f"  Total duration    : {elapsed:.1f} seconds")
+        print(f"  Avg time/segment  : {avg_per_segment:.2f} seconds")
+        print("\nDone.\n")
+
 
     client.disconnect()
 
