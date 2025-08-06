@@ -9,12 +9,16 @@ import yaml
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set
 
-from flexradio_comm import FlexRadioClient, FlexRadioError
+from radio_interface import BaseRadioError, BaseRadioClient
+from flexradio_client import FlexRadioClient
+from rigctl_client import RigctlClient
+
 from rf2ks_client import RF2KSClient, RF2KSClientError
 from rf2ks_logger import log_tuner_data
+from radio_registry import RADIO_CLIENTS
 
 PROGRAM_NAME = "RF2K-Trainer"
-VERSION = "0.9.001"
+VERSION = "0.9.002"
 GIT_PROJECT_URL = "https://github.com/tnxqso/rf2k-trainer"
 
 logger = None
@@ -39,9 +43,23 @@ class AppContext:
     selected_bands: Set[str]
     radio_settings: Dict[str, Any]
     amp_settings: Dict[str, Any]
+    radio_type: Optional[str] = None
+    radio_label: Optional[str] = None  
 
-def create_context(config: Dict[str, Any], segment_config: Dict[str, Any], bands_args: List[str], logger, tuner_log_path, debug_mode: bool) -> AppContext:
+def create_context(
+    config: Dict[str, Any],
+    segment_config: Dict[str, Any],
+    bands_args: List[str],
+    logger,
+    tuner_log_path,
+    debug_mode: bool,
+    radio_settings: Dict[str, Any],
+    radio_type: str,
+    radio_label: str
+) -> AppContext:
     bands = load_combined_band_data(config, segment_config)
+    defaults = config.get("defaults", {})
+    amp_settings = config.get("rf2k_s", {})
     selected_bands = {
         arg if arg.endswith("m") else f"{arg}m"
         for arg in bands_args
@@ -51,19 +69,19 @@ def create_context(config: Dict[str, Any], segment_config: Dict[str, Any], bands
     ctx = AppContext(
         config=config,
         bands=bands,
-        rf2ks_url=None,  # Will be set below
+        rf2ks_url=f"http://{amp_settings.get('host')}:{amp_settings.get('port')}",
         tuner_log_path=tuner_log_path,
         logger=logger,
         debug_mode=debug_mode,
         selected_bands=selected_bands,
-        prompt_before_each_tune=config.get("defaults", {}).get("prompt_before_each_tune", False),
-        use_beep=config.get("defaults", {}).get("use_beep", True),
+        prompt_before_each_tune=defaults.get("prompt_before_each_tune", False),
+        use_beep=defaults.get("use_beep", True),
         segment_config=segment_config,
-        radio_settings=config.get("flexradio", {}),
-        amp_settings=config.get("rf2k_s", {})
+        radio_settings=radio_settings,
+        amp_settings=amp_settings,
+        radio_type=radio_type,
+        radio_label=radio_label
     )
-
-    ctx.rf2ks_url = f"http://{ctx.amp_settings.get('host')}:{ctx.amp_settings.get('port')}"
 
     if selected_bands:
         invalid = [b for b in selected_bands if b not in bands]
@@ -76,6 +94,28 @@ def create_context(config: Dict[str, Any], segment_config: Dict[str, Any], bands
         logger.info(f"Using all enabled bands: {', '.join(ctx.bands.keys())}")
 
     return ctx
+
+def radio_setup(config: dict) -> tuple[dict, str, str, type[BaseRadioClient]]:
+
+    radio_settings = config.get("radio", {})
+    radio_type = radio_settings.get("type", "flex").lower()
+
+    if radio_type not in RADIO_CLIENTS:
+        raise ConfigurationError(
+            f"Invalid radio type '{radio_type}'. Valid options: {', '.join(RADIO_CLIENTS.keys())}"
+        )
+
+    radio_entry = RADIO_CLIENTS[radio_type]
+    radio_label = radio_entry["label"]
+    radio_class = radio_entry["class"]
+    port = radio_settings.get("port", radio_entry["default_port"])
+
+    used_default_port = "port" not in radio_settings
+    logger.info(
+        f"Radio client initialized: {radio_label} (port {port}{' - default' if used_default_port else ''})"
+    )
+
+    return radio_settings, radio_type, radio_label, radio_class
 
 def beep(enabled=True):
     if not enabled:
@@ -296,7 +336,7 @@ def calculate_tuning_frequencies(
     return tuning_points
 
 
-def print_band_info(band_name: str, band_data: dict):
+def print_band_info(band_name: str, band_data: dict) -> int:
     """
     Pretty-print the band tuning information including extra tuning points, if any.
 
@@ -307,6 +347,9 @@ def print_band_info(band_name: str, band_data: dict):
                    - 'band_start' (float): start of band in kHz
                    - 'band_end' (float): end of band in kHz
                    - 'first_segment_center' (int): first known good center frequency in kHz
+
+    Returns:
+        int: Number of tuning segments (frequency points)
     """
     segment_size = band_data["segment_size"]
     band_start = band_data["band_start"]
@@ -316,20 +359,18 @@ def print_band_info(band_name: str, band_data: dict):
     tuning_freqs = calculate_tuning_frequencies(
         band_start, band_end, segment_size, first_segment_center
     )
+    num_segments = len(tuning_freqs)
 
     print(f"\n=== Band: {band_name} ===")
     print(f"Segment size: {segment_size:.0f} kHz")
     print(f"Band start: {band_start / 1000:.4f} MHz")
     print(f"Band end: {band_end / 1000:.4f} MHz")
     print(f"Band width: {band_end - band_start:.1f} kHz")
-    print(f"Number of tuning points: {len(tuning_freqs)}")
+    print(f"Number of tuning points: {num_segments}")
     print("Tuning frequencies (MHz):")
+    print("  " + ", ".join(f"{f / 1000:.4f}" for f in tuning_freqs))
 
-    freq_lines = []
-    for f in tuning_freqs:
-        freq_lines.append(f"{f / 1000:.4f}")
-
-    print("  " + ", ".join(freq_lines))
+    return num_segments
 
 def show_instructions(ctx: AppContext):
     """
@@ -349,6 +390,7 @@ def show_instructions(ctx: AppContext):
         print("This means the program cannot switch the amplifier to Standby mode, nor can it read or log the resulting L and C values.\n")
 
     print("Radio connection settings:")
+    print(f"  - Type: {ctx.radio_label}")
     print(f"  - Host: {ctx.radio_settings.get('host')}")
     print(f"  - Port: {ctx.radio_settings.get('port')}\n")
 
@@ -382,7 +424,7 @@ def show_instructions(ctx: AppContext):
     print("\nThis is not an issue during normal program completion – the radio will be returned to receive (RX) mode automatically.")
 
 
-def run_tuning_loop(client: FlexRadioClient, ctx: AppContext):
+def run_tuning_loop(radio_client: FlexRadioClient, ctx: AppContext):
     """
     Execute tuning loop per band and frequency, with logging and user prompts.
     """
@@ -390,7 +432,7 @@ def run_tuning_loop(client: FlexRadioClient, ctx: AppContext):
     start_time = time.time()
     total_segments = 0
 
-    client.set_mode("CW")
+    radio_client.set_mode("CW")
 
     for band_name, band_data in ctx.bands.items():
         ctx.logger.info(f"\n=== Band: {band_name} ===")
@@ -408,11 +450,11 @@ def run_tuning_loop(client: FlexRadioClient, ctx: AppContext):
             first_segment_center
         )
 
-        client.set_tune_power(tune_power)
+        radio_client.set_tune_power(tune_power)
         print(f"Setting tune power to {tune_power} W for {band_name} band...")
 
         for freq in tuning_freqs:
-            client.set_frequency(freq / 1000)
+            radio_client.set_frequency(freq / 1000)
 
             if ctx.prompt_before_each_tune:
                 user_input = input(
@@ -426,7 +468,7 @@ def run_tuning_loop(client: FlexRadioClient, ctx: AppContext):
                 print(f"\nPreparing to tune {freq / 1000:.4f} MHz on {band_name} band...")
                 countdown(4)
 
-            client.start_tune()
+            radio_client.start_tune()
 
             beep(ctx.use_beep)
             input(
@@ -434,7 +476,7 @@ def run_tuning_loop(client: FlexRadioClient, ctx: AppContext):
                 "    Tune your RF2K-S amplifier (press 'Tune & Store' or make a manual tune and store it).\n"
                 "    Once tuning is on RF2K-S is complete, press ENTER to continue..."
             )
-            client.stop_tune()
+            radio_client.stop_tune()
             total_segments += 1
 
             print()
@@ -455,7 +497,7 @@ def run_tuning_loop(client: FlexRadioClient, ctx: AppContext):
         print("\nDone.\n")
 
 
-    client.disconnect()
+    radio_client.disconnect()
 
 
 def main():
@@ -476,6 +518,7 @@ def main():
         sys.exit(0)
 
     config = load_yaml_file("settings.yml")
+
     segment_config = load_rf2k_segment_alignment("rf2k_segment_alignment.yml")
 
     if not args.info:
@@ -488,13 +531,20 @@ def main():
     from loghandler import setup_logging
     logger, tuner_log_path = setup_logging(log_dir="logs", clear_old=clear_old, debug=debug_mode)
 
+    # Setup radio config and client class
+    radio_settings, radio_type, radio_label, radio_class = radio_setup(config)
+
+    # Inject into context
     ctx = create_context(
         config=config,
         segment_config=segment_config,
         bands_args=args.bands,
         logger=logger,
         tuner_log_path=tuner_log_path,
-        debug_mode=debug_mode
+        debug_mode=debug_mode,
+        radio_settings=radio_settings,
+        radio_type=radio_type,
+        radio_label=radio_label
     )
 
     logger.info(f"Logger is initialized")
@@ -503,8 +553,17 @@ def main():
     if args.info:
         print(f"{PROGRAM_NAME} - v{VERSION} - Band Information")
 
+        total_segments = 0
         for band_name, band_data in ctx.bands.items():
-            print_band_info(band_name, band_data)
+            total_segments += print_band_info(band_name, band_data)
+
+        est_seconds = total_segments * 12
+        minutes, seconds = divmod(est_seconds, 60)
+
+        print("\n===============================================")
+        print(f"Total tuning segments: {total_segments}")
+        print(f"Estimated total tuning time: {minutes} min {seconds} sec")
+        print("===============================================")
 
         return
 
@@ -516,18 +575,16 @@ def main():
     =================================================================
     """)
 
-    host = ctx.radio_settings.get("host", "localhost")
-    port = ctx.radio_settings.get("port", 4992)
-    logger.info(f"\nConnecting to FlexRadio at {host}:{port}...")
+    logger.info(f"\nConnecting to {ctx.radio_label} at {ctx.radio_settings["host"]}:{ctx.radio_settings["port"]}...")
+    radio_client = radio_class(ctx.radio_settings["host"], ctx.radio_settings["port"])
 
     try:
-        client = FlexRadioClient(host, port)
-        client.connect()
+        radio_client.connect()
     except Exception as e:
-        logger.error(f"Connection failed: {e}")
+        logger.error(f"Connection to {ctx.radio_label} failed: {e}")
         return
 
-    logger.info("Connection to Flexradio established.\n")
+    logger.info(f"Connection to {ctx.radio_label} established.\n")
 
     rf2ks = None
     if ctx.amp_settings.get("enabled", False):
@@ -539,8 +596,7 @@ def main():
 
     show_instructions(ctx)
 
-
-    run_tuning_loop(client, ctx)
+    run_tuning_loop(radio_client, ctx)
 
 
 if __name__ == "__main__":
@@ -549,8 +605,8 @@ if __name__ == "__main__":
     except RF2KSClientError as e:
         logger.error(f"[FATAL] RF2K-S communication failed: {e}")
         sys.exit(1)
-    except FlexRadioError as e:
-        logger.error(f"[FATAL] FlexRadio communication failed: {e}")
+    except BaseRadioError as e:
+        logger.error(f"[FATAL] Radio communication failed: {e}")
         sys.exit(1)
     except ConfigurationError as e:
         logger.error(f"[CONFIG ERROR] {e}")

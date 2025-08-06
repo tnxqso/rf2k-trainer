@@ -20,11 +20,12 @@ defaults:
   # Set to true for safer, step-by-step tuning. False for automatic tuning with countdown.
   prompt_before_each_tune: false
 
-# FlexRadio connection settings
-flexradio:
-  host: 192.168.20.100  # Hostname or IP address of the FlexRadio server
-  port: 4992 # Port number for FlexRadio connection, 4992 is the default for FlexRadio
-  client_id: "flex_rf2k_trainer" # Unique client identifier for FlexRadio, do not alter
+# Radio connection settings
+radio:
+  type: flex                         # "flex" for FlexRadio, or "rigctl" for Hamlib/rigctld-supported radios
+  host: 192.168.20.100               # IP/hostname of radio (e.g., FlexRadio). Use "localhost" for rigctld.
+  port: 4992                         # Default: 4992 for FlexRadio, 4532 for rigctld
+  client_id: "rf2k_trainer"          # Optional: Used only for FlexRadio client authentication
 
 # Amplifier configuration
 rf2k_s:

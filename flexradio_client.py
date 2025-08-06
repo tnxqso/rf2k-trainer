@@ -2,15 +2,16 @@ import socket
 import threading
 import re
 import os
+from radio_interface import BaseRadioClient, BaseRadioError
 from loghandler import get_logger
 
 logger = None
 
-class FlexRadioError(Exception):
+class FlexRadioError(BaseRadioError):
     """Custom exception for FlexRadioClient-related errors."""
     pass
 
-class FlexRadioClient:
+class FlexRadioClient(BaseRadioClient):
     def __init__(self, host, port, debug=False):
         global logger
         if logger is None:

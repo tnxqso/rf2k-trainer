@@ -12,156 +12,230 @@
 
 - [Introduction](#introduction)
 - [Features](#features)
+- [Supported Radios](#supported-radios)
 - [Requirements](#requirements)
-- [Installation](#installation)
-  - [Windows Installation](#windows-installation)
-  - [Linux/macOS Installation](#linuxmacos-installation)
-- [Configuration](#configuration)
+- [Installation & Configuration](#installation--configuration)
+  - [General Requirements (All Platforms)](#️-general-requirements-all-platforms)
+  - [Windows Installation (Step-by-step)](#-windows-installation-step-by-step)
+  - [Linux / macOS Installation](#-linux--macos-installation)
+  - [Configuration Overview](#️-configuration-overview)
+  - [Example `radio:` Settings](#example-radio-settings)
+  - [Setting Your IARU Region](#setting-your-iaru-region)
 - [Usage](#usage)
+  - [Examples](#examples)
+  - [Arguments](#arguments)
+  - [Full automatic tuning](#full-automatic-tuning)
+  - [Tuning a single band](#tuning-a-single-band)
+  - [Show band segments info without tuning](#show-band-segments-info-without-tuning)
+  - [Recommended First Step](#recommended-first-step)
 - [Real-World Tuning Time (Example)](#real-world-tuning-time-example)
 - [Band Plan Overrides](#band-plan-overrides)
+- [Windows Launcher Script (Optional)](#windows-launcher-script-optional)
+  - [Create a Desktop Shortcut](#create-a-desktop-shortcut)
 - [Debugging and Troubleshooting](#debugging-and-troubleshooting)
 - [Upgrade Instructions](#upgrade-instructions)
 - [Contributing](#contributing)
+  - [How to Contribute](#how-to-contribute)
+  - [How to Submit a Pull Request](#how-to-submit-a-pull-request)
+  - [Code Style and Practices](#code-style-and-practices)
+- [Project Independence](#project-independence)
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
 - [API Note: "Tune & Store"](#api-note-tune--store)
-- [Useful Stuff](#useful-stuff)
+- [Useful Resources](#useful-resources)
+- [Installing Hamlib (rigctl)](#installing-hamlib-rigctl)
 - [Disclaimer](#disclaimer)
 
 ---
 
 ## Introduction
 
-**RF2K TRAINER** is a command-line tool designed to automate the pre-tuning process of your **RF2K-S** solid-state amplifier across the HF amateur radio bands. It currently supports **FlexRadio** devices, but future versions aim to support a broader range of radios via common control interfaces.
+**RF2K TRAINER** is a command-line tool designed to automate the pre-tuning process of your **RF2K-S** solid-state amplifier across the HF amateur radio bands. It supports both **FlexRadio** (via native API) (tested) and other radios through **Hamlib** using `rigctld` (experimental).
 
-The tool leverages standardized IARU band plans (Region 1, 2, or 3) to calculate precise tuning points across each band. You may optionally override band limits and tuning power settings on a per-band basis through a simple YAML configuration.
+The tool leverages standardized IARU band plans (Region 1, 2, or 3) to calculate precise tuning points across each band. You can optionally override band limits and tuning power settings on a per-band basis using a simple YAML configuration.
 
-For each frequency segment, the program sets your radio accordingly and guides you through manual Tune & Store activation on the amplifier, streamlining what would otherwise be a time-consuming manual process.
+For each frequency segment, the program sets your radio to the correct frequency and guides you through the manual **Tune & Store** process on the amplifier – streamlining what would otherwise be a slow, repetitive task.
 
 ---
 
 ## Features
 
-- Automatically connects to FlexRadio via TCP using SmartSDR API
+- Supports both **FlexRadio** (via native TCP API) and **Hamlib-compatible radios** (via `rigctld`)
+- Automatically connects to FlexRadio or rigctld based on configuration
 - Fetches and validates band segment limits from IARU band plans
-- Supports IARU region 1, 2 and 3 via `iaru_region_X.yml` files
+- Supports IARU Region 1, 2 and 3 via `iaru_region_X.yml` files
 - Allows per-band power and limit overrides in `settings.yml`
 - Connects to RF2K-S over HTTP to read status and switch to STANDBY mode
-- Calculates segment midpoints, detects edge gaps
+- Calculates segment midpoints and detects edge gaps
 - Fully interactive loop for tuning each segment per band
 - Safety validation for tuning power and frequency settings
+- Calculates tuning points at segment centers for optimal segment coverage
 - Supports RF2K-S fixed tuning segments
-- Calculates tuning points at segment centers for maximum reuse
 - Detects and tunes sub-segment gaps at band edges
-- Logs debug output and tuner data to separate files in `logs/` directory
+- Logs debug output and tuner data to separate files in the `logs/` directory
+
+
+## Supported Radios
+
+`rf2k-trainer` supports the following radio control interfaces:
+
+- **FlexRadio** via native TCP/IP API (tested)
+- **Hamlib (rigctl)** for other radios supporting CAT via rigctld (experimental)
+
+> ⚠️ When using `rigctl`, tuning power cannot be automatically set by this program. You must manually ensure your transceiver outputs the correct `tune_power` during tuning steps.
+
+See [Installing Hamlib (rigctl)](#installing-hamlib-rigctl) below for setup instructions.
 
 ## Requirements
 
 - Python 3.10+
-- A FlexRadio device (e.g. FLEX-6000 series) accessible on LAN or VPN
-- RF2K-S amplifier (optional) with web API enabled (v0.9)
+- A supported transceiver:
+  - **FlexRadio** (e.g. FLEX-6000 series) with SmartSDR TCP API, or
+  - Any radio supported by **Hamlib** via `rigctld` (experimental support)
+- RF2K-S amplifier (optional) with web API enabled (version 0.9 or later)
 
 ---
 
-## Installation
 
-### ⚠️ Requirements (All Platforms)
+## Installation & Configuration
+
+This section guides you through installing RF2K-TRAINER and preparing your system to communicate with your radio and amplifier.
+
+---
+
+### ⚙️ General Requirements (All Platforms)
+
+Before proceeding, ensure the following tools are installed:
 
 - Python **3.10 or later**  
-  [Download from python.org](https://www.python.org/downloads/)
-- `pip` (Python package manager) — usually installed with Python  
-- [Git](https://git-scm.com/downloads) (for cloning the repository)  
-  On Windows, choose the **"Git from the command line and also from 3rd-party software"** option during installation.
+  [Download Python](https://www.python.org/downloads/)
+
+- `pip` – Python package manager (usually included with Python)
+
+- Git – used to clone the repository  
+  [Download Git](https://git-scm.com/downloads)  
+  ✅ During setup on Windows, choose the option:  
+  **"Git from the command line and also from 3rd-party software"**
+
+- **Hamlib** – Required if you are **not using FlexRadio**  
+  [Download Hamlib from SourceForge](https://sourceforge.net/projects/hamlib/)
 
 ---
 
 ### 🪟 Windows Installation (Step-by-step)
 
-If you're new to Git or Python, follow these steps carefully:
+If you're new to Python or Git, follow each step carefully:
 
 1. **Install Git**  
-   Download and install from [git-scm.com](https://git-scm.com/downloads)
+   [https://git-scm.com/downloads](https://git-scm.com/downloads)
 
 2. **Install Python 3.10+**  
-   Download from [python.org](https://www.python.org/downloads/)  
-   ✅ **Important**: During installation, check **"Add Python to PATH"**
+   [https://www.python.org/downloads/](https://www.python.org/downloads/)  
+   ✅ Check **"Add Python to PATH"** during installation
 
-3. **Open PowerShell**  
-   Press `Windows` + `R`, type `powershell`, then press `Enter`.
+3. **(Optional) Install Hamlib (for rigctl users)**  
+   Skip this if using FlexRadio.  
+   - Download ZIP from: [Hamlib SourceForge](https://sourceforge.net/projects/hamlib/)
+   - Extract contents, e.g., `C:\Hamlib`
+   - Add the folder containing `rigctld.exe` to your system `PATH`
 
-4. **Download the Project**
+   To manually start `rigctld`, open PowerShell and run:
+   ```powershell
+   rigctld -m <model> -r <COMx> -t 4532
+   ```
+   Replace `<model>` with the model number (from `rigctl -l`) and `<COMx>` with your COM port.
 
-```powershell
-git clone https://github.com/tnxqso/rf2k-trainer.git
-cd rf2k-trainer
-```
+4. **Open PowerShell**  
+   Press `Windows + R`, type `powershell`, press Enter
 
-5. **Install Python Dependencies**
+5. **Clone the Repository**
+   ```powershell
+   git clone https://github.com/tnxqso/rf2k-trainer.git
+   cd rf2k-trainer
+   ```
 
-```powershell
-pip install -r requirements.txt
-```
+6. **Install Python Dependencies**
+   ```powershell
+   pip install -r requirements.txt
+   ```
 
-6. **Create Your Settings File**
-
-```powershell
-copy settings.example.yml settings.yml
-notepad settings.yml
-```
-
-👉 Edit the file in Notepad and fill in:
-- Your IARU region (1, 2 or 3)
-- Your FlexRadio host address
-- Enable the bands you want to tune
+7. **Create and Edit Configuration**
+   ```powershell
+   copy settings.example.yml settings.yml
+   notepad settings.yml
+   ```
 
 ---
 
 ### 🐧 Linux / macOS Installation
 
-1. Clone the repository:
+1. **Clone the Repository**
+   ```bash
+   git clone https://github.com/tnxqso/rf2k-trainer.git
+   cd rf2k-trainer
+   ```
 
-```bash
-git clone https://github.com/tnxqso/rf2k-trainer.git
-cd rf2k-trainer
-```
+2. **Install Python Dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-2. Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-3. Copy and edit the settings file:
-
-```bash
-cp settings.example.yml settings.yml
-nano settings.yml
-```
-
-Edit `settings.yml` to match your IARU region, FlexRadio IP, and desired band settings.
-
+3. **Create and Edit Configuration**
+   ```bash
+   cp settings.example.yml settings.yml
+   nano settings.yml
+   ```
 
 ---
 
-## Configuration
+### ⚙️ Configuration Overview
 
-The configuration is split into:
+All configuration is done via a single file: `settings.yml`
 
-- `settings.yml`: Main configuration including enabled bands, tuning power, FlexRadio and RF2K-S host settings
-- `iaru_region_1.yml`, etc: Read-only band limits per IARU region
+- Defines your IARU region
+- Selects which bands to tune
+- Sets tuning power per band (FlexRadio only)
+- Configures radio interface (FlexRadio or Hamlib rigctl)
+- Sets amplifier connection (RF2K-S via HTTP)
 
-Specify the region using:
+⚠️ Do not modify other `.yml` files — they are used internally by the program.
 
+---
+
+### Example `radio:` Settings
+
+#### ✅ FlexRadio
+```yaml
+radio:
+  type: flex
+  host: 192.168.20.100
+  port: 4992
+  client_id: "flex_rf2k_trainer"
+```
+
+#### 🛠️ Hamlib / rigctl
+```yaml
+radio:
+  type: rigctl
+  host: localhost
+  port: 4532
+```
+
+> ⚠️ **Important Note:** When using `rigctl`, `tuning_power` **cannot be set automatically**. You must manually configure power level on your radio before tuning.
+
+---
+
+### Setting Your IARU Region
+
+In `settings.yml`:
 ```yaml
 defaults:
   iaru_region: 1
 ```
 
-Each band can be enabled, disabled, or override power and band limits if necessary.
+You may override `band_start`, `band_end`, and `tune_power` per band if needed — but be cautious when overriding band limits unless you understand the implications.
 
 ---
-
 
 ## Usage
 
@@ -239,7 +313,13 @@ This is a representative example using a FlexRadio and RF2K-S combo with segment
 
 ## Band Plan Overrides
 
-You **can** override `band_start`, `band_end`, and `tune_power` for each band in your `settings.yml` file – but overriding `band_start` and `band_end` is **not recommended** unless you fully understand the consequences.
+You **can** override `band_start`, `band_end`, and `tune_power` for each band in your `settings.yml` file —  
+however, changing `band_start` and `band_end` is **not recommended** unless you fully understand the implications.
+
+> ⚠️ Note: `tune_power` settings only apply when using **FlexRadio**.  
+> If you're using `rigctl`, you must manually configure your radio’s output power before tuning.
+
+These values affect how tuning points are calculated, and improper overrides may result in incomplete coverage or inefficient tuning. Proceed with caution.
 
 ### Important:
 
@@ -299,27 +379,35 @@ You may create a shortcut to the launcher for easier access:
    - You can also set it to **Run: Minimized** if preferred
 4. Double-click the icon to launch RF2K-TRAINER
 
-This is the recommended way to run RF2K-TRAINER on Windows for casual or non-technical users.
+This is the recommended way to run RF2K-TRAINER on Windows for casual users.
 
 
 ## Debugging and Troubleshooting
 
-- Verify your FlexRadio IP address and port in `settings.yml` (default: `4992`)
-- Make sure only one SmartSDR client is connected to the radio at a time
-- Ensure your RF2K-S amplifier is accessible and running API version **0.9** or later
-- You can run the program with the `--debug` flag to enable verbose output:
+- Check your radio connection settings in `settings.yml`:
+  - For **FlexRadio**, verify the correct IP address and port (default: `4992`)
+  - For **rigctl**, confirm that `rigctld` is running and listening on the correct port
+
+- If using **FlexRadio**, make sure only one SmartSDR client is connected at a time.
+
+- Confirm that your **RF2K-S** amplifier is reachable on the network and running API version **0.9** or later.
+
+- Run the tool in debug mode to see detailed output:
 
   ```bash
   python main.py --debug
   ```
 
-  This provides more insight into the steps being executed and may help identify misconfiguration or communication issues.
+  This enables verbose logging and can help identify misconfigurations or communication issues.
 
-- Logging to file is **not yet implemented**, but will be added in a future release.
+- All logs are saved automatically in the `logs/` directory:
+  - **Debug logs** (general program output):  
+    `logs/rf2k-trainer_<timestamp>.log`
+  - **Tuner logs** (tuning results per segment):  
+    `logs/tuning-results_<timestamp>.csv`
 
-- All debug and amplifier interaction logs are saved in `logs/rf2k-trainer<TIMESTAMP>.log`
-- Tuner data (segment tuning results) are written to CSV files in `logs/` after each tuning pass
-- Include both log types when requesting help — they are critical for reproducing issues
+> 💡 If you're requesting support or reporting a bug, include both log files.  
+> They are essential for reproducing and diagnosing problems.
 
 ## Upgrade Instructions
 
@@ -398,14 +486,17 @@ We're grateful for every contribution, large or small. Your help makes this proj
 
 RF2K-TRAINER is an independent open-source project created by and for the amateur radio community.
 
-This project is **not affiliated with**, **endorsed by**, or **officially supported by** RF-KIT, RF-POWER, or FlexRadio Systems.  
+This project is **not affiliated with**, **endorsed by**, or **officially supported by** RF-KIT, RF-POWER, FlexRadio Systems, or the Hamlib project.  
 All product names and trademarks mentioned are the property of their respective owners and are used strictly for interoperability and reference purposes.
 
+And yes — this software is completely **free**. We don’t want your money, beer, or even coffee.  
+(Okay, we *like* coffee and red wine but the best way to show appreciation is to use the tool, share feedback, or tell a fellow ham about it!)
 
 
 ## License
 
-MIT License
+RF2K-TRAINER is released under the [MIT License](https://opensource.org/licenses/MIT).  
+You are free to use, copy, modify, and distribute the software, as long as the original license and copyright notice remain.
 
 ---
 
@@ -413,24 +504,95 @@ MIT License
 
 - [FlexRadio Systems](https://www.flexradio.com/)
 - [RF-Power RF2K-S](https://rf-kit.de/)
+- [Hamlib Project](https://hamlib.github.io/) — for providing rig control support across many transceivers
 - Contributors to SmartSDR, RFKit API, and amateur radio open source tools
 
 ---
 
 ## API Note: "Tune & Store"
 
-At this time, the RF2K-S amplifier requires the user to press the **"Tune & Store"** button manually on the front panel during tuning. [The RFKit API (v0.9)](https://rf-power.eu/wp-content/uploads/2024/12/RFKIT_api_doc_0_9_0.html) does not support triggering this action programmatically.
+Currently, the RF2K-S amplifier requires **manual activation** of the **"Tune & Store"** function on the front panel during each tuning step.  
+Unfortunately, the [RFKit API (v0.9)](https://rf-power.eu/wp-content/uploads/2024/12/RFKIT_api_doc_0_9_0.html) does **not** offer any way to trigger this action remotely or programmatically.
 
-A feature request has been submitted to the RF-Kit development team to add API support for automating **Tune & Store**. We hope this functionality will become available in a future firmware update.
+A formal feature request has been submitted to the RF-Kit development team to enable this capability via the API.  
+We remain hopeful that a future firmware release will add support for fully automated tuning workflows — including remote activation of **"Tune & Store"** and a response indicating when tuning has completed and been stored.
+
+> Note: In practice, a single tuning pass often yields acceptable results, but occasionally a second pass improves performance.  
+> While some users prefer full manual control, a hybrid approach — automatic first, manual fine-tuning if needed — could offer the best of both worlds.
 
 ---
-## Usfeul Stuff
-- [RFKIT API and SDK Documentation](https://rf-power.eu/wp-content/uploads/2024/12/RFKIT_api_doc_0_9_0.html)
-- [RF2K-S User Manual](https://rf-power.eu/wp-content/uploads/2025/06/RF2K-S_User_Manual_EN_06_25.pdf)
-- [SmartSDR TCPIP API](https://github.com/flexradio/smartsdr-api-docs/wiki/SmartSDR-TCPIP-API)
+## Useful Resources
+
+Here are some useful links and documentation references that may assist with integration, troubleshooting, and further development:
+
+- 📘 [RFKIT API and SDK Documentation](https://rf-power.eu/wp-content/uploads/2024/12/RFKIT_api_doc_0_9_0.html)  
+  Official API documentation for RF2K-S amplifier control (v0.9)
+
+- 📖 [RF2K-S User Manual (June 2025)](https://rf-power.eu/wp-content/uploads/2025/06/RF2K-S_User_Manual_EN_06_25.pdf)  
+  Latest user manual for RF2K-S, including front panel operation and memory concepts
+
+- 🧠 [SmartSDR TCPIP API (FlexRadio)](https://github.com/flexradio/smartsdr-api-docs/wiki/SmartSDR-TCPIP-API)  
+  Unofficial documentation of the FlexRadio TCP/IP API (used for CAT control)
+
+- 🔧 [Hamlib rigctl Manual (CLI Reference)](https://manpages.debian.org/testing/hamlib-utils/rigctl.1.en.html)  
+  Command-line usage and supported functionality for Hamlib's `rigctl` interface
+
+- 📡 [Hamlib GitHub Repository](https://github.com/Hamlib/Hamlib)  
+  Source code, issues, and contributions to the Hamlib library
+
+- 📝 [IARU Band Plans (Region 1)](https://www.iaru-r1.org/band-plans/)  
+  Official regional band plan references (Region 1 shown — others available)
+
+- 🛠️ [SDR Command Line Tools](https://github.com/dl1ksv/smartsdr-cli)  
+  Tools and inspiration for controlling FlexRadio via scripts
+
+If you know of other valuable resources that should be listed here, feel free to submit a pull request or open an issue!
+
+## Installing Hamlib (rigctl)
+
+If you're not using a FlexRadio, `rf2k-trainer` supports other radios through Hamlib's `rigctld`.
+
+To install Hamlib:
+
+### On Debian/Ubuntu:
+
+```bash
+sudo apt install hamlib-utils
+```
+
+### On macOS (with Homebrew):
+
+```bash
+brew install hamlib
+```
+
+### On Windows:
+
+1. Download pre-built binaries from: [https://sourceforge.net/projects/hamlib/](https://sourceforge.net/projects/hamlib/)
+2. Ensure `rigctld.exe` is in your PATH.
+
+### Starting rigctld
+
+You need to start `rigctld` before running `rf2k-trainer`. Example:
+
+```bash
+rigctld -m 306 -r /dev/ttyUSB0 -t 4532
+```
+
+Replace:
+- `-m 306` with your radio model number from `rigctl -l`
+- `-r` with your radio's serial device or COM port
+- `-t` is the TCP port (default 4532)
+
+
 
 ## Disclaimer
 
 This software is provided **as is**, without warranty of any kind. You are solely responsible for verifying safe and correct operation of your equipment. The authors accept no liability for damage to radio hardware, amplifiers, antennas, or other connected systems due to misconfiguration or improper use of this software.
 
-Do not rely on this tool for unattended or automated transmission unless you fully understand its implications and risks.
+> ⚠️ **Warning:** This tool actively controls your radio and amplifier. During the tuning process, RF output is triggered automatically. If the program crashes or is interrupted, your transceiver may remain in transmit or tuning mode.  
+> It is the **user's full responsibility** to monitor and manage the transmission state at all times.
+
+> 📻 **Operator Responsibility:** You must ensure that your transmissions do not interfere with other radio traffic. Always verify that the selected frequency is clear before tuning, and never leave the process unattended unless you are fully aware of the implications.
+
+Do not rely on this tool for unattended or automated transmission unless you fully understand its behavior, failure modes, and risks.
