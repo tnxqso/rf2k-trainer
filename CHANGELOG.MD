@@ -43,4 +43,3 @@ All notable changes to RF2K-TRAINER will be documented in this file.
 ### Fixed
 - Linter not recognizing `FlexRadioClient` in early import stages
 - Runtime errors due to undefined variables in `main.py`
-
