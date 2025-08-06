@@ -463,12 +463,17 @@ def main():
     parser = argparse.ArgumentParser(description="RF2K-Trainer: Tune RF2K-S amplifier by band")
     parser.add_argument("bands", nargs="*", help="Bands to tune, e.g. 20m 40m or 20 40")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
-    parser.add_argument("--clear-logs", action="store_true", help="Delete old log files on startup")
+    parser.add_argument("--clear-logs", action="store_true", help="Delete old log files and exit")
     parser.add_argument("--info", action="store_true", help="Show band tuning information and exit")
     args = parser.parse_args()
 
     global debug_mode
     debug_mode = args.debug
+
+    if args.clear_logs:
+        from loghandler import clear_old_logs
+        clear_old_logs("logs")
+        sys.exit(0)
 
     config = load_yaml_file("settings.yml")
     segment_config = load_rf2k_segment_alignment("rf2k_segment_alignment.yml")

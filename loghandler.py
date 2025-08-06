@@ -1,4 +1,5 @@
 import os
+import glob
 import logging
 from datetime import datetime
 
@@ -12,9 +13,7 @@ def setup_logging(log_dir="logs", clear_old=False, debug=False):
     os.makedirs(log_dir, exist_ok=True)
 
     if clear_old:
-        for f in os.listdir(log_dir):
-            if f.endswith(".log"):
-                os.remove(os.path.join(log_dir, f))
+        clear_old_logs(log_dir)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     general_log_file = os.path.join(log_dir, f"rf2k-trainer_{timestamp}.log")
@@ -55,3 +54,20 @@ def get_tuner_logger():
     if _tuner_logger is None:
         raise RuntimeError("Tuner logger not initialized. Call setup_logging() first.")
     return _tuner_logger
+
+def clear_old_logs(log_dir: str):
+    if not os.path.exists(log_dir):
+        return
+
+    patterns = ["*.log", "*.csv"]
+    deleted = 0
+
+    for pattern in patterns:
+        for file in glob.glob(os.path.join(log_dir, pattern)):
+            try:
+                os.remove(file)
+                deleted += 1
+            except Exception as e:
+                print(f"Failed to delete {file}: {e}")
+
+    print(f"Cleared {deleted} old log files.")
