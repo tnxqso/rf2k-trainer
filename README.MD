@@ -122,50 +122,84 @@ Before proceeding, ensure the following tools are installed:
 
 ---
 
+
 ### 🪟 Windows Installation (Step-by-step)
 
 If you're new to Python or Git, follow each step carefully:
 
-1. **Install Git**  
-   [https://git-scm.com/downloads](https://git-scm.com/downloads)
+#### 1. Install Git  
+[https://git-scm.com/downloads](https://git-scm.com/downloads)
 
-2. **Install Python 3.10+**  
-   [https://www.python.org/downloads/](https://www.python.org/downloads/)  
-   ✅ Check **"Add Python to PATH"** during installation
+#### 2. Install Python 3.10+  
+[https://www.python.org/downloads/](https://www.python.org/downloads/)  
+✅ Check **"Add Python to PATH"** during installation
 
-3. **(Optional) Install Hamlib (for rigctl users)**  
-   Skip this if using FlexRadio.  
-   - Download ZIP from: [Hamlib SourceForge](https://sourceforge.net/projects/hamlib/)
-   - Extract contents, e.g., `C:\Hamlib`
-   - Add the folder containing `rigctld.exe` to your system `PATH`
+#### 3. (Optional) Install Hamlib (for rigctl users)  
+FlexRadio users can skip this step.
 
-   To manually start `rigctld`, open PowerShell and run:
-   ```powershell
-   rigctld -m <model> -r <COMx> -t 4532
-   ```
-   Replace `<model>` with the model number (from `rigctl -l`) and `<COMx>` with your COM port.
+- Download the Windows installer from:  
+  [`Hamlib on SourceForge`](https://sourceforge.net/projects/hamlib/files/hamlib/)  
+  e.g. `hamlib-w64-4.6.4.exe`
 
-4. **Open PowerShell**  
-   Press `Windows + R`, type `powershell`, press Enter
+- Run the installer and accept the default location:  
+  `C:\Program Files\hamlib-w64-4.6.4`
 
-5. **Clone the Repository**
-   ```powershell
-   git clone https://github.com/tnxqso/rf2k-trainer.git
-   cd rf2k-trainer
-   ```
+- ⚠️ **Important:** The installer does not automatically update your `PATH`.  
+  You must add the Hamlib `bin\` directory to your system `PATH` manually.
 
-6. **Install Python Dependencies**
-   ```powershell
-   pip install -r requirements.txt
-   ```
+  Example path to add:
+  ```
+  C:\Program Files\hamlib-w64-4.6.4\bin
+  ```
 
-7. **Create and Edit Configuration**
-   ```powershell
-   copy settings.example.yml settings.yml
-   notepad settings.yml
-   ```
+  📘 [How to add a folder to your PATH](https://geek-university.com/windows/add-a-folder-to-windows-path/)
+
+- To manually start `rigctld`, open PowerShell:
+  ```powershell
+  rigctld -m <model> -r <COMx> -t 4532
+  ```
+  Replace `<model>` with the model number from `rigctl -l`  
+  Replace `<COMx>` with your radio's COM port (e.g. `COM4`)
+
+> ℹ️ Tip: See `README.w64-bin.txt` in the install folder for additional Windows-specific notes.
 
 ---
+
+#### 4. Open PowerShell  
+Press `Windows + R`, type `powershell`, press Enter
+
+#### 5. Clone the Repository
+```powershell
+git clone https://github.com/tnxqso/rf2k-trainer.git
+cd rf2k-trainer
+```
+
+#### 6. Install Python Dependencies
+```powershell
+pip install -r requirements.txt
+```
+
+#### 7. Create and Edit Configuration
+```powershell
+copy settings.example.yml settings.yml
+notepad settings.yml
+```
+Then edit `settings.yml` to define:
+- IARU region (1, 2, or 3)
+- Radio type (`flex` or `rigctl`)
+- IP or COM settings
+- Enabled bands and tuning power
+
+---
+
+### 💡 Future Improvement?
+
+We are considering adding an option for **automatically launching `rigctld`** from within RF2K-TRAINER if it's not already running.
+
+This would simplify things for Hamlib users.  
+If you think this would help — or have ideas —  
+👉 [**open a GitHub issue**](https://github.com/tnxqso/rf2k-trainer/issues/new?template=feature_request.md) and let us know!
+
 
 ### 🐧 Linux / macOS Installation
 
