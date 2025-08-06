@@ -1,14 +1,24 @@
 # Default configuration
 defaults:
-  # IARU region affects band plans limits (start and end frequencies)
-  # Each region has different band plans, so ensure you set this correctly
-  # to get the right band limits.
-  # Band start and end frequencies can be overridden by band-specific settings
-  iaru_region: 1 # Set to 1 for Europe, 2 for Americas, 3 for Asia-Pacific
-  tune_power: 13 # Default tuning power used unless overridden by band-specific settings below
-  use_beep: true # Enable or disable beeping during tuning, true means enabled
-  prompt_before_each_tune: false  # Enable or disable prompt before each tune, true means enabled
+  # IARU region affects band plans limits (start and end frequencies).
+  # 1 = Europe/Africa, 2 = Americas, 3 = Asia-Pacific.
+  # These values determine regional band limits unless overridden per-band.
+  iaru_region: 1
 
+  # Drive power (in watts) used during TUNE procedure.
+  # IMPORTANT: RF2K-S requires tuning power between 4 and 39 W.
+  # If the power is outside this range, the amplifier tuner will not activate.
+  # Although tuning works from 4 W, at least 10 W is recommended for best results.
+  # Default is 13 W which is both safe and effective.
+  tune_power: 13
+
+  # Enable audible beep before each tuning step (true/false).
+  # Helps indicate when to manually start tuning on the amplifier.
+  use_beep: true
+
+  # Require manual confirmation (press ENTER) before each tuning step (true/false).
+  # Set to true for safer, step-by-step tuning. False for automatic tuning with countdown.
+  prompt_before_each_tune: false
 
 # FlexRadio connection settings
 flexradio:
