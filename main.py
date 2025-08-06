@@ -305,18 +305,20 @@ def print_band_info(band_name: str, band_data: dict):
 
 def show_instructions(ctx: AppContext):
     """
-    Display detailed instructions for the tuning procedure based on the configuration context.
+    Display clear and detailed instructions for the tuning procedure,
+    based on the current configuration context.
     """
     print("\nINSTRUCTIONS:\n")
 
     if ctx.amp_settings.get("enabled", False):
-        print("1. Your RF2K-S amplifier is enabled and will be used for tuning.")
-        print("2. The program will attempt to switch the amplifier to Standby automatically.")
-        print("3. You will be asked to confirm each tuning step before proceeding.")
-        print("4. After tuning each frequency, the RF2K-S tuner data will be logged if logging is enabled.\n")
+        print("Your RF2K-S amplifier is configured for programmatic control.")
+        print("This means the amplifier will be switched to Standby mode automatically when needed.")
+        print("However, due to RF2K-S API limitations, this program cannot switch the amplifier into Tune mode automatically.")
+        print("You will be prompted to confirm each tuning step manually.")
+        print("After each tuning segment, the amplifier's current L and C values will be queried and logged.\n")
     else:
-        print("1. RF2K-S amplifier is not enabled.")
-        print("2. You will still be prompted before each tuning step if that is enabled in the config.\n")
+        print("Programmatic control of your RF2K-S amplifier is DISABLED.")
+        print("This means the program cannot switch the amplifier to Standby mode, nor can it read or log the resulting L and C values.\n")
 
     print("Radio connection settings:")
     print(f"  - Host: {ctx.radio_settings.get('host')}")
@@ -330,14 +332,27 @@ def show_instructions(ctx: AppContext):
     print()
 
     if ctx.prompt_before_each_tune:
-        print("You will be asked to press ENTER before each tuning step.")
+        print("You will be prompted to press ENTER before each tuning step begins.")
     else:
-        print("Tuning will proceed automatically with countdown prompts.")
+        print("Tuning will proceed automatically with a countdown between each step.")
 
     if ctx.use_beep:
-        print("A beep will signal when it's time to tune your amplifier.")
+        print("An audible beep will indicate when it's time to initiate the Tune function on your amplifier.")
 
-    print("\nMake sure your radio and amplifier are powered on and connected correctly before starting.")
+    print("\nBefore starting, please ensure:")
+    print("  - Your radio is powered on and connected to the network.")
+    print("  - Your RF2K-S amplifier is powered on and connected.")
+    print("  - Appropriate antennas are in place for tuning.")
+    print("  - You are ready to monitor or interact with the equipment as prompted.")
+
+    print("\n⚠️  IMPORTANT SAFETY NOTICE:")
+    print("During the tuning process, your radio will be instructed to change frequency and transmit (TUNE mode).")
+    print("This is expected behavior during a tuning step.")
+    print("\nHOWEVER, if the program is interrupted unexpectedly (e.g., user aborts, network failure, or crash),")
+    print("the radio may remain in transmit (TX) mode unless manually stopped.")
+    print("Always verify that the radio is no longer transmitting if the program exits abnormally.")
+    print("\nThis is not an issue during normal program completion – the radio will be returned to receive (RX) mode automatically.")
+
 
 def run_tuning_loop(client: FlexRadioClient, ctx: AppContext):
     """
