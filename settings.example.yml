@@ -5,7 +5,7 @@ defaults:
   # to get the right band limits.
   # Band start and end frequencies can be overridden by band-specific settings
   iaru_region: 1 # Set to 1 for Europe, 2 for Americas, 3 for Asia-Pacific
-  tune_power: 12 # Default tuning power used unless overridden by band-specific settings below
+  tune_power: 13 # Default tuning power used unless overridden by band-specific settings below
   use_beep: true # Enable or disable beeping during tuning, true means enabled
   prompt_before_each_tune: false  # Enable or disable prompt before each tune, true means enabled
 
@@ -32,66 +32,66 @@ rf2k_s:
 bands:
   160m:
     enabled: false # Enable or disable tuning for 160m band, true means enabled
-    # tune_power: 10 # Uncomment and set custom tuning power if needed, otherwise default will be used
+    # tune_power: 13 # Uncomment and set custom tuning power if needed, otherwise default will be used
     # band_start: 1800
     # band_end: 2000
 
   80m:
     enabled: true # Enable or disable tuning for 80m band, true means enabled
-    # tune_power: 10 # Uncomment and set custom tuning power if needed, otherwise default will be used
+    # tune_power: 13 # Uncomment and set custom tuning power if needed, otherwise default will be used
     #band_start: 3500
     #band_end: 3800
 
   60m:
     enabled: true # Enable or disable tuning for 60m band, true means enabled
-    # tune_power: 10 # Uncomment and set custom tuning power if needed, otherwise default will be used
+    # tune_power: 13 # Uncomment and set custom tuning power if needed, otherwise default will be used
     #band_start: 5351.5
     #band_end: 5366.5
 
   40m:
     enabled: true # Enable or disable tuning for 40m band, true means enabled
-    # tune_power: 10 # Uncomment and set custom tuning power if needed, otherwise default will be used
+    # tune_power: 13 # Uncomment and set custom tuning power if needed, otherwise default will be used
     # band_start: 7000
     # band_end: 7200
 
   30m:
     enabled: true # Enable or disable tuning for 30m band, true means enabled
-    # tune_power: 10 # Uncomment and set custom tuning power if needed, otherwise default will be used
+    # tune_power: 13 # Uncomment and set custom tuning power if needed, otherwise default will be used
     # band_start: 10100
     # band_end: 10150
 
   20m:
     enabled: true # Enable or disable tuning for 20m band, true means enabled
-    # tune_power: 10 # Uncomment and set custom tuning power if needed, otherwise default will be used
+    # tune_power: 13 # Uncomment and set custom tuning power if needed, otherwise default will be used
     # band_start: 14000
     # band_end: 14350
 
   17m:
     enabled: true # Enable or disable tuning for 17m band, true means enabled
-    # tune_power: 10 # Uncomment and set custom tuning power if needed, otherwise default will be used
+    # tune_power: 13 # Uncomment and set custom tuning power if needed, otherwise default will be used
     # band_start: 18068
     # band_end: 18168
 
   15m:
     enabled: true # Enable or disable tuning for 15m band, true means enabled
-    # tune_power: 10 # Uncomment and set custom tuning power if needed, otherwise default will be used
+    # tune_power: 13 # Uncomment and set custom tuning power if needed, otherwise default will be used
     # band_start: 21000
     # band_end: 21450
 
   12m:
     enabled: true # Enable or disable tuning for 12m band, true means enabled
-    # tune_power: 10 # Uncomment and set custom tuning power if needed, otherwise default will be used
+    # tune_power: 13 # Uncomment and set custom tuning power if needed, otherwise default will be used
     # band_start: 24890
     # band_end: 24990
 
   10m:
     enabled: true # Enable or disable tuning for 10m band, true means enabled
-    # tune_power: 10 # Uncomment and set custom tuning power if needed, otherwise default will be used
+    # tune_power: 13 # Uncomment and set custom tuning power if needed, otherwise default will be used
     # band_start: 28000
     # band_end: 29700
 
   6m:
     enabled: false # Disable tuning for 6m band, true means enabled
-    # tune_power: 10 # Uncomment and set custom tuning power if needed, otherwise default will be used
+    # tune_power: 13 # Uncomment and set custom tuning power if needed, otherwise default will be used
     # band_start: 50000
     # band_end: 52000
