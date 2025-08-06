@@ -173,7 +173,8 @@ python main.py [bands ...] [--debug] [--info] [--clear-logs]
 
 ```bash
 python main.py 20 40
-python main.py 80m 160m --debug --clear-logs
+python main.py 80m 160m --debug
+python main.py --clear-logs
 python main.py --info
 ```
 
@@ -182,7 +183,7 @@ python main.py --info
 - `bands` – One or more bands to tune (e.g., `20`, `40m`, `160m`). If omitted, all enabled bands from `settings.yml` are used.
 - `--debug` – Enables debug logging
 - `--info` – Shows band tuning info without performing tuning
-- `--clear-logs` – Deletes old logs on startup
+- `--clear-logs` – Deletes old logs and exits program
 - `--help` – Shows usage help
 - `--version` – Displays program version
 
