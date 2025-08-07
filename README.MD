@@ -134,7 +134,7 @@ If you're new to Python or Git, follow each step carefully:
 [https://www.python.org/downloads/](https://www.python.org/downloads/)  
 ✅ Check **"Add Python to PATH"** during installation
 
-#### 3. (Optional) Install Hamlib (for rigctl users)  
+#### 3. (Optional) Install Hamlib (for non Flexradio users)  
 FlexRadio users can skip this step.
 
 - Download the Windows installer from:  
@@ -143,29 +143,24 @@ FlexRadio users can skip this step.
 
 - Run the installer and accept the default installation folder, typically:  
   ```
-  C:\Program Files\hamlib-w64-<version>
-  ```
-  ⚠️ The exact folder name depends on the Hamlib version you're installing. For example:  
-  `C:\Program Files\hamlib-w64-4.6.4`. Take note of this path — you’ll need it for the next step.
-
-- ⚠️ **Important:** The installer does **not** update your system `PATH` automatically.  
-  You must manually add the path to Hamlib’s `bin\` directory to your system environment variables.
-
-  Example path to add (adjust for your version):
-  ```
-  C:\Program Files\hamlib-w64-4.6.4\bin
+  C:\Program Files\hamlib-w64-4.6.4
   ```
 
-  📘 [How to add a folder to your PATH (with screenshots)](https://stackoverflow.com/questions/44272416/add-a-folder-to-the-path-environment-variable-in-windows-10-with-screenshots/)
+- ⚠️ Take note of this installation path — you’ll need to copy it into your `settings.yml` file.
 
-- To manually start `rigctld`, open PowerShell and run:
-  ```powershell
-  rigctld -m <model> -r <COMx> -t 4532
+  Example:
+  ```yaml
+  radio:
+    type: rigctl
+    auto_start_rigctld: true
+    rigctld_path: "C:\Program Files\hamlib-w64-4.6.4\bin\rigctld.exe"
+    model: 3073 # For Icom IC-7300
+    serial_port: COM4
   ```
-  Replace `<model>` with your radio’s model number (see `rigctl -l`)  
-  Replace `<COMx>` with the correct COM port your radio uses (e.g. `COM4`)
 
-> ℹ️ Tip: The file `README.w64-bin.txt` in the Hamlib installation directory contains extra instructions and helpful troubleshooting notes specific to Windows users.
+- ℹ️ `rigctl.exe` will automatically be discovered in the same folder as `rigctld.exe`, no need to configure it separately.
+
+> 📝 The file `README.w64-bin.txt` in the Hamlib installation directory contains extra instructions and troubleshooting notes specific to Windows users.
 
 #### 4. Open PowerShell  
 Press `Windows + R`, type `powershell`, press Enter
@@ -193,15 +188,6 @@ Then edit `settings.yml` to define:
 - Enabled bands and tuning power
 
 ---
-
-### 💡 Future Improvement?
-
-We are considering adding an option for **automatically launching `rigctld`** from within RF2K-TRAINER if it's not already running.
-
-This would simplify things for Hamlib users.  
-If you think this would help — or have ideas —  
-👉 [**open a GitHub issue**](https://github.com/tnxqso/rf2k-trainer/issues/new?template=feature_request.md) and let us know!
-
 
 ### 🐧 Linux / macOS Installation
 
@@ -253,8 +239,10 @@ radio:
 ```yaml
 radio:
   type: rigctl
-  host: localhost
-  port: 4532
+  auto_start_rigctld: true
+  rigctld_path: "/usr/local/bin/rigctld"
+  model: 3073  # For Icom IC-7300
+  serial_port: "/dev/ttyUSB0"
 ```
 
 > ⚠️ **Important Note:** When using `rigctl`, `tuning_power` **cannot be set automatically**. You must manually configure power level on your radio before tuning.
@@ -582,11 +570,15 @@ Here are some useful links and documentation references that may assist with int
 - 🛠️ [SDR Command Line Tools](https://github.com/dl1ksv/smartsdr-cli)  
   Tools and inspiration for controlling FlexRadio via scripts
 
+
+- 🛠️ [rigctl - Man Page](https://www.mankier.com/1/rigctl)  
+  Control radio transceivers and receivers. rigctl accepts commands from the command line as well as in interactive mode if none are provided on the command line.
+
 If you know of other valuable resources that should be listed here, feel free to submit a pull request or open an issue!
 
 ## Installing Hamlib (rigctl)
 
-If you're not using a FlexRadio, `rf2k-trainer` supports other radios through Hamlib's `rigctld`.
+If you're not using a FlexRadio, `RF2K Trainer` supports other radios through Hamlib's `rigctld`.
 
 To install Hamlib:
 
@@ -605,21 +597,23 @@ brew install hamlib
 ### On Windows:
 
 1. Download pre-built binaries from: [https://sourceforge.net/projects/hamlib/](https://sourceforge.net/projects/hamlib/)
-2. Ensure `rigctld.exe` is in your PATH.
+2. Run the installer and note the install path (e.g. `C:\Program Files\hamlib-w64-4.6.4`)
+3. You do **not** need to modify your system `PATH`. Just point to the rigctld path in `settings.yml` as described in [Example `radio:` Settings](#example-radio-settings)
 
-### Starting rigctld
+Example configuration:
 
-You need to start `rigctld` before running `rf2k-trainer`. Example:
-
-```bash
-rigctld -m 306 -r /dev/ttyUSB0 -t 4532
+```yaml
+radio:
+  type: rigctl
+  auto_start_rigctld: true
+  rigctld_path: "C:\\Program Files\\hamlib-w64-4.6.4\\bin\\rigctld.exe"
+  model: 3073  # For Icom IC-7300
+  serial_port: COM4
 ```
 
-Replace:
-- `-m 306` with your radio model number from `rigctl -l`
-- `-r` with your radio's serial device or COM port
-- `-t` is the TCP port (default 4532)
+### rigctld Autostart
 
+You no longer need to manually start `rigctld`. If `auto_start_rigctld: true` is set in `settings.yml` as shown in [Example `radio:` Settings](#example-radio-settings), the RF2K Trainer will start `rigctld` automatically.
 
 
 ## Disclaimer

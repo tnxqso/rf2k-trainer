@@ -26,6 +26,12 @@ radio:
   host: 192.168.20.100               # IP/hostname of radio (e.g., FlexRadio). Use "localhost" for rigctld.
   port: 4992                         # Default: 4992 for FlexRadio, 4532 for rigctld
   client_id: "rf2k_trainer"          # Optional: Used only for FlexRadio client authentication
+  
+  # (Optional) rigctld auto-launch support for Hamlib radios, not needed for FlexRadio.
+  auto_start_rigctld: false          # If true, rf2k-trainer will attempt to start rigctld if not running
+  rigctld_path: "C:/Program Files/hamlib-w64-4.6.4/bin/rigctld.exe"  # Full path to rigctld.exe if auto-launch is enabled
+  rigctld_model: 2032                # Rig model number (use rigctl -l to find your radio)
+  rigctld_serial_port: COM4          # Serial port for radio connection (e.g., COM3, COM4)
 
 # Amplifier configuration
 rf2k_s:

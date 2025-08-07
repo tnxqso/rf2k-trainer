@@ -30,9 +30,9 @@ def setup_logging(log_dir="logs", clear_old=False, debug=False):
     )
 
     _logger = logging.getLogger()
-    _logger.info(f"Log file created: {general_log_file}")
-    _logger.info(f"Tuner results will be written to: {tuner_result_file}")
-    _logger.info(f"Logging level set to: {'DEBUG' if debug else 'INFO'}")
+    _logger.debug(f"Log file created: {general_log_file}")
+    _logger.debug(f"Tuner results will be written to: {tuner_result_file}")
+    _logger.debug(f"Logging level set to: {'DEBUG' if debug else 'INFO'}")
 
     # Tuner logger (no timestamps, file only)
     _tuner_logger = logging.getLogger("tuner")

@@ -31,19 +31,24 @@ class RigctlClient(BaseRadioClient):
         except Exception as e:
             raise BaseRadioError(f"Communication error with rigctld: {e}")
 
-    def set_mode(self, mode: str):
-        return self.send(f"M {mode.upper()} 2400")
+    def set_mode(self, mode: str, width: int = 400):
+        logger.debug(f"rigctl: Setting mode to {mode.upper()}, width={width}")
+        return self.send(f"M {mode.upper()} {width}")
 
     def set_frequency(self, freq_mhz: float):
-        return self.send(f"F {int(freq_mhz * 1_000_000)}")
+        freq_hz = int(freq_mhz * 1_000_000)
+        logger.debug(f"rigctl: Setting frequency to {freq_hz} Hz")
+        return self.send(f"F {freq_hz}")
 
     def set_tune_power(self, rfpower: int):
         logger.warning("Tune power not supported via rigctl – skipping.")
 
     def start_tune(self):
+        logger.debug("Sending PTT ON (T 1) to rigctl")
         return self.send("T 1")
 
     def stop_tune(self):
+        logger.debug("Sending PTT OFF (T 0) to rigctl")
         return self.send("T 0")
 
     def disconnect(self):

@@ -16,9 +16,11 @@ from rigctl_client import RigctlClient
 from rf2ks_client import RF2KSClient, RF2KSClientError
 from rf2ks_logger import log_tuner_data
 from radio_registry import RADIO_CLIENTS
+from rigctld_manager import RigctldManager, RigCtldManagerError
+
 
 PROGRAM_NAME = "RF2K-Trainer"
-VERSION = "0.9.002"
+VERSION = "0.9.003"
 GIT_PROJECT_URL = "https://github.com/tnxqso/rf2k-trainer"
 
 logger = None
@@ -44,7 +46,9 @@ class AppContext:
     radio_settings: Dict[str, Any]
     amp_settings: Dict[str, Any]
     radio_type: Optional[str] = None
-    radio_label: Optional[str] = None  
+    radio_label: Optional[str] = None
+    radio_description: Optional[str] = None
+    rigctld: Optional[Any] = None
 
 def create_context(
     config: Dict[str, Any],
@@ -55,7 +59,9 @@ def create_context(
     debug_mode: bool,
     radio_settings: Dict[str, Any],
     radio_type: str,
-    radio_label: str
+    radio_label: str,
+    radio_description: Optional[str],
+    rigctld: Optional[Any]
 ) -> AppContext:
     bands = load_combined_band_data(config, segment_config)
     defaults = config.get("defaults", {})
@@ -80,7 +86,9 @@ def create_context(
         radio_settings=radio_settings,
         amp_settings=amp_settings,
         radio_type=radio_type,
-        radio_label=radio_label
+        radio_label=radio_label,
+        radio_description=radio_description,
+        rigctld=rigctld
     )
 
     if selected_bands:
@@ -95,8 +103,7 @@ def create_context(
 
     return ctx
 
-def radio_setup(config: dict) -> tuple[dict, str, str, type[BaseRadioClient]]:
-
+def radio_setup(config: dict) -> tuple[dict, str, str, type[BaseRadioClient], Optional[str], Optional[RigctldManager]]:
     radio_settings = config.get("radio", {})
     radio_type = radio_settings.get("type", "flex").lower()
 
@@ -108,14 +115,46 @@ def radio_setup(config: dict) -> tuple[dict, str, str, type[BaseRadioClient]]:
     radio_entry = RADIO_CLIENTS[radio_type]
     radio_label = radio_entry["label"]
     radio_class = radio_entry["class"]
-    port = radio_settings.get("port", radio_entry["default_port"])
 
-    used_default_port = "port" not in radio_settings
+    used_default_port = False
+    port = radio_settings.get("port")
+    if port is None:
+        port = radio_entry["default_port"]
+        used_default_port = True
+
     logger.info(
         f"Radio client initialized: {radio_label} (port {port}{' - default' if used_default_port else ''})"
     )
 
-    return radio_settings, radio_type, radio_label, radio_class
+    radio_description = None
+    rigctld = None
+
+    if radio_type == "rigctl":
+        if radio_settings.get("auto_start_rigctld", False):
+            model = radio_settings.get("model") or radio_settings.get("rigctld_model")
+            serial_port = radio_settings.get("serial_port") or radio_settings.get("rigctld_serial_port")
+            rigctld_path = radio_settings.get("rigctld_path")
+
+            if model is None or serial_port is None:
+                raise ConfigurationError("Missing 'model' or 'serial_port' for rigctl configuration.")
+
+            try:
+                rigctld = RigctldManager(
+                    model=model,
+                    serial_port=serial_port,
+                    port=port,
+                    rigctld_path=rigctld_path
+                )
+                rigctld.start()
+                radio_description = rigctld.get_description()
+            except RigCtldManagerError as e:
+                logger.error(f"[FATAL] Error starting rigctld: {e}")
+                sys.exit(1)
+
+    elif radio_type == "flex":
+        radio_description = "FlexRadio (SmartSDR TCP/IP API)"
+
+    return radio_settings, radio_type, radio_label, radio_class, radio_description, rigctld
 
 def beep(enabled=True):
     if not enabled:
@@ -372,6 +411,29 @@ def print_band_info(band_name: str, band_data: dict) -> int:
 
     return num_segments
 
+def setup_rigctld_if_needed(settings) -> Optional[RigctldManager]:
+    """
+    Conditionally start rigctld based on settings.
+    Returns the RigctldManager instance (if started), or None otherwise.
+    """
+    if settings.radio.type != "rigctl":
+        return None
+
+    rig_model = getattr(settings.radio, "model", None)
+    rig_serial_port = getattr(settings.radio, "serial_port", None)
+
+    if rig_model is None or rig_serial_port is None:
+        raise ValueError("You must define 'model' and 'serial_port' in the radio section when using rigctl.")
+
+    manager = RigctldManager(
+        model=rig_model,
+        serial_port=rig_serial_port,
+        port=settings.radio.port
+    )
+    manager.start()
+    return manager
+
+
 def show_instructions(ctx: AppContext):
     """
     Display clear and detailed instructions for the tuning procedure,
@@ -390,9 +452,11 @@ def show_instructions(ctx: AppContext):
         print("This means the program cannot switch the amplifier to Standby mode, nor can it read or log the resulting L and C values.\n")
 
     print("Radio connection settings:")
-    print(f"  - Type: {ctx.radio_label}")
-    print(f"  - Host: {ctx.radio_settings.get('host')}")
-    print(f"  - Port: {ctx.radio_settings.get('port')}\n")
+    print(f"  - Type:  {ctx.radio_type}")
+    print(f"  - Label: {ctx.radio_label}")
+    print(f"  - Desc:  {ctx.radio_description or 'N/A'}")
+    print(f"  - Host:  {ctx.radio_settings.get('host')}")
+    print(f"  - Port:  {ctx.radio_settings.get('port')}\n")
 
     print("Bands selected for tuning:")
     for band in sorted(ctx.selected_bands):
@@ -415,14 +479,35 @@ def show_instructions(ctx: AppContext):
     print("  - Appropriate antennas are in place for tuning.")
     print("  - You are ready to monitor or interact with the equipment as prompted.")
 
-    print("\n⚠️  IMPORTANT SAFETY NOTICE:")
+    input("\n  Press ENTER to continue...")
+    print("\n" + "=" * 112)
+    print("⚠️  IMPORTANT SAFETY NOTICE:")
     print("During the tuning process, your radio will be instructed to change frequency and transmit (TUNE mode).")
     print("This is expected behavior during a tuning step.")
+
     print("\nHOWEVER, if the program is interrupted unexpectedly (e.g., user aborts, network failure, or crash),")
     print("the radio may remain in transmit (TX) mode unless manually stopped.")
     print("Always verify that the radio is no longer transmitting if the program exits abnormally.")
-    print("\nThis is not an issue during normal program completion – the radio will be returned to receive (RX) mode automatically.")
+    print("=" * 112)
 
+    if "rigctl" in ctx.radio_label.lower():
+        print("\n" + "=" * 112)
+        print("⚠️  IMPORTANT NOTICE FOR RIGCTL USERS")
+        print()
+        print("Your radio is controlled via rigctl, which does NOT support setting TX power levels programmatically.")
+        print("This means it is YOUR responsibility to manually configure the radio's output power BEFORE tuning.")
+        print()
+        print("✅ The RF2K-S amplifier requires tuning power between **4 and 39 watts**.")
+        print("👉 We strongly recommend setting your radio to **13 watts** – a safe and effective level for tuning.")
+        print()
+        print("⚠️  Transmitting above 39 watts during tuning can cause immediate and permanent damage to the amplifier.")
+        print("⚠️  Such damage is NOT covered by any warranty.")
+        print()
+        print("🔍 Please double-check your TX power settings now before proceeding.")
+        print("=" * 112)
+
+
+    input("\n  Press ENTER to continue...")
 
 def run_tuning_loop(radio_client: FlexRadioClient, ctx: AppContext):
     """
@@ -432,7 +517,7 @@ def run_tuning_loop(radio_client: FlexRadioClient, ctx: AppContext):
     start_time = time.time()
     total_segments = 0
 
-    radio_client.set_mode("CW")
+    radio_client.set_mode(mode="CW", width=400)
 
     for band_name, band_data in ctx.bands.items():
         ctx.logger.info(f"\n=== Band: {band_name} ===")
@@ -451,7 +536,6 @@ def run_tuning_loop(radio_client: FlexRadioClient, ctx: AppContext):
         )
 
         radio_client.set_tune_power(tune_power)
-        print(f"Setting tune power to {tune_power} W for {band_name} band...")
 
         for freq in tuning_freqs:
             radio_client.set_frequency(freq / 1000)
@@ -517,24 +601,34 @@ def main():
         clear_old_logs("logs")
         sys.exit(0)
 
+    # Load configuration and segment alignment data
     config = load_yaml_file("settings.yml")
-
     segment_config = load_rf2k_segment_alignment("rf2k_segment_alignment.yml")
 
+    # Prompt to clear logs if not using --info
+    response = "n"
     if not args.info:
         response = input("Do you want to delete old log files? (y/N): ").strip().lower() or "n"
-    else:
-        response = "n"
 
-    clear_old = args.clear_logs or response == 'y'
+    clear_old = args.clear_logs or response == "y"
 
     from loghandler import setup_logging
     logger, tuner_log_path = setup_logging(log_dir="logs", clear_old=clear_old, debug=debug_mode)
 
-    # Setup radio config and client class
-    radio_settings, radio_type, radio_label, radio_class = radio_setup(config)
+    # Lazy-initialize radio-related values to None
+    radio_settings = {}
+    radio_type = None
+    radio_label = None
+    radio_description = None
+    radio_class = None
+    rigctld = None
 
-    # Inject into context
+    if not args.info:
+        # Only initialize radio if not in info mode
+        radio_settings, radio_type, radio_label, radio_class, radio_description, rigctld = radio_setup(config)
+        logger.info(f"Radio description: {radio_description}")
+
+    # Context must be created in both info and tuning modes
     ctx = create_context(
         config=config,
         segment_config=segment_config,
@@ -544,13 +638,15 @@ def main():
         debug_mode=debug_mode,
         radio_settings=radio_settings,
         radio_type=radio_type,
-        radio_label=radio_label
+        radio_label=radio_label,
+        radio_description=radio_description,
+        rigctld=rigctld
     )
 
-    logger.info(f"Logger is initialized")
-    validate_all_tune_power(ctx)
+    logger.debug("Logger is initialized")
 
     if args.info:
+        # Display only band tuning information
         print(f"{PROGRAM_NAME} - v{VERSION} - Band Information")
 
         total_segments = 0
@@ -564,9 +660,11 @@ def main():
         print(f"Total tuning segments: {total_segments}")
         print(f"Estimated total tuning time: {minutes} min {seconds} sec")
         print("===============================================")
-
         return
 
+    validate_all_tune_power(ctx)
+
+    # Start banner
     logger.info(f"""
     =================================================================
     {PROGRAM_NAME} - v{VERSION}
@@ -575,7 +673,8 @@ def main():
     =================================================================
     """)
 
-    logger.info(f"\nConnecting to {ctx.radio_label} at {ctx.radio_settings["host"]}:{ctx.radio_settings["port"]}...")
+    # Radio client setup and connect
+    logger.info(f"\nConnecting to {ctx.radio_label} at {ctx.radio_settings['host']}:{ctx.radio_settings['port']}...")
     radio_client = radio_class(ctx.radio_settings["host"], ctx.radio_settings["port"])
 
     try:
@@ -586,6 +685,7 @@ def main():
 
     logger.info(f"Connection to {ctx.radio_label} established.\n")
 
+    # RF2K-S amplifier setup
     rf2ks = None
     if ctx.amp_settings.get("enabled", False):
         rf2ks = RF2KSClient(ctx.config)
@@ -610,7 +710,10 @@ if __name__ == "__main__":
         sys.exit(1)
     except ConfigurationError as e:
         logger.error(f"[CONFIG ERROR] {e}")
-        sys.exit(1)        
+        sys.exit(1)
+    except RigCtldManagerError as e:
+        logger.error(f"[FATAL] rigctld startup failed: {e}")
+        sys.exit(1)
     except Exception as e:
         logger.exception("[FATAL] Unexpected error occurred")
         sys.exit(1)

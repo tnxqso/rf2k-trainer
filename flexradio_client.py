@@ -105,13 +105,14 @@ class FlexRadioClient(BaseRadioClient):
         line, self.buffer = self.buffer.split(b"\n", 1)
         return line.decode().strip()
 
-    def set_mode(self, mode="CW"):
+    def set_mode(self, mode: str, width: int = 400):
         return self.send_command(f"slice set {self.active_slice_id} mode={mode}")
 
     def set_frequency(self, freq_mhz=14.070):
         return self.send_command(f"slice tune {self.active_slice_id} {freq_mhz:.4f}")
 
     def set_tune_power(self, rfpower):
+        logger.info(f"Setting tune power to {rfpower}W")
         return self.send_command(f"transmit set tunepower={int(rfpower)}")
 
     def start_tune(self):
