@@ -5,4 +5,5 @@ PRIVATE_README.md
 *.csv
 desktop.ini
 .vscode
+.release_template.md
 __pycache__

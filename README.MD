@@ -4,12 +4,13 @@
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-green.svg)](https://www.python.org/)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](#)
 
-*A command-line tool to automatically tune your RF2K-S amplifier across HF band segments using region-specific band plans.*
+*A command-line tool to automatically tune your RF2K-S HF Power Amplifier across HF band segments using region-specific band plans.*
 
 ---
 
 ## Table of Contents
 
+- [Why RF2K-TRAINER Exists](#why-rf2k-trainer-exists)
 - [Introduction](#introduction)
 - [Features](#features)
 - [Supported Radios](#supported-radios)
@@ -48,13 +49,41 @@
 
 ---
 
+## Why RF2K-TRAINER Exists
+
+The RF2K-S HF Power Amplifier requires tuning to be performed and stored for every fixed frequency segment across the HF bands. This design makes sense, once tuned, the amplifier will instantly recall the correct match whenever you're back on that frequency. But the process of populating all segments can be painfully repetitive.
+
+If you've installed a new antenna, changed coax length, or moved the station, chances are you'll need to re-tune every band. That means:
+
+- Manually setting your transceiver to multiple dozen center frequencies
+- Transmitting a low-power carrier (typically in CW or RTTY)
+- Pressing "Tune & Store" on the amplifier
+- Repeating this for every segment of every band you care about
+
+It's easy to lose track of where you were, or forget to tune the segments near the band edges. Even if you're organized, this is a time-consuming and error-prone process.
+
+**RF2K-TRAINER solves this** by automating the *radio side* of the process: stepping through all relevant frequencies based on the IARU band plan, calculating exact segment centers as defined in the amplifier (not just approximate steps), and letting the operator focus on confirming that it's safe to tune.
+
+You stay in control – the program waits for your confirmation after each step – but all the manual work with frequency dials and checklists is gone.
+
+This tool is especially useful if:
+- You want complete tuning coverage for all bands of interest
+- You’ve made changes to antennas or operating location
+- You want to save time while still respecting operating practices
+
+RF2K-TRAINER works with both FlexRadio (via native API) and other transceivers via Hamlib (`rigctl`). With FlexRadio, tuning power can also be set automatically, otherwise you'll be prompted to do it manually before starting.
+
+No shortcuts, no blind transmissions – just a smarter way to handle a tedious job.
+
 ## Introduction
 
-**RF2K TRAINER** is a command-line tool designed to automate the pre-tuning process of your **RF2K-S** solid-state amplifier across the HF amateur radio bands. It supports both **FlexRadio** (via native API) (tested) and other radios through **Hamlib** using `rigctld` (experimental).
+**RF2K-TRAINER** is a command-line utility that automates the frequency stepping and guidance required to tune the **RF2K-S HF Power Amplifier** across its fixed segment architecture.
 
-The tool leverages standardized IARU band plans (Region 1, 2, or 3) to calculate precise tuning points across each band. You can optionally override band limits and tuning power settings on a per-band basis using a simple YAML configuration.
+Based on IARU band plans (Region 1, 2, or 3), it calculates the exact center frequencies used for memory storage in the amplifier and walks the operator through each tuning step with minimal risk of error.
 
-For each frequency segment, the program sets your radio to the correct frequency and guides you through the manual **Tune & Store** process on the amplifier – streamlining what would otherwise be a slow, repetitive task.
+The tool communicates directly with your transceiver (FlexRadio or Hamlib-compatible) and optionally with the RF2K-S HF Power Amplifier itself (to some extent), logging every step and ensuring tuning sessions are repeatable and complete.
+
+It’s a controlled, deterministic approach that reduces guesswork, while still keeping you in charge of transmission and safety.
 
 ---
 
@@ -65,12 +94,12 @@ For each frequency segment, the program sets your radio to the correct frequency
 - Fetches and validates band segment limits from IARU band plans
 - Supports IARU Region 1, 2 and 3 via `iaru_region_X.yml` files
 - Allows per-band power and limit overrides in `settings.yml`
-- Connects to RF2K-S over HTTP to read status and switch to STANDBY mode
+- Connects to RF2K-S HF Power Amplifier over HTTP to read status and switch to STANDBY mode
 - Calculates segment midpoints and detects edge gaps
 - Fully interactive loop for tuning each segment per band
 - Safety validation for tuning power and frequency settings
 - Calculates tuning points at segment centers for optimal segment coverage
-- Supports RF2K-S fixed tuning segments
+- Supports RF2K-S HF Power Amplifier fixed tuning segments
 - Detects and tunes sub-segment gaps at band edges
 - Logs debug output and tuner data to separate files in the `logs/` directory
 
@@ -92,7 +121,7 @@ See [Installing Hamlib (rigctl)](#installing-hamlib-rigctl) below for setup inst
 - A supported transceiver:
   - **FlexRadio** (e.g. FLEX-6000 series) with SmartSDR TCP API, or
   - Any radio supported by **Hamlib** via `rigctld` (experimental support)
-- RF2K-S amplifier (optional) with web API enabled (version 0.9 or later)
+- RF2K-S HF Power Amplifier (optional) with web API enabled (version 0.9 or later)
 
 ---
 
@@ -218,7 +247,7 @@ All configuration is done via a single file: `settings.yml`
 - Selects which bands to tune
 - Sets tuning power per band (FlexRadio only)
 - Configures radio interface (FlexRadio or Hamlib rigctl)
-- Sets amplifier connection (RF2K-S via HTTP)
+- Sets amplifier connection (RF2K-S HF Power Amplifier via HTTP)
 
 ⚠️ Do not modify other `.yml` files — they are used internally by the program.
 
@@ -330,7 +359,7 @@ This verifies that all segment alignment and tuning parameters are correct befor
 In a real-world test, tuning all enabled bands **except 160m** and **only the lower half of 6m**, took **approximately 18 minutes**.  
 This included several retunes on certain frequencies, since occasionally a second tuning pass produced better SWR results.
 
-This is a representative example using a FlexRadio and RF2K-S combo with segment logging enabled.
+This is a representative example using a FlexRadio and RF2K-S HF Power Amplifier combo with segment logging enabled.
 
 ---
 
@@ -347,14 +376,14 @@ These values affect how tuning points are calculated, and improper overrides may
 
 ### Important:
 
-The RF2K-S amplifier uses **fixed frequency segments** for storing tuning data. These segment sizes and their exact center frequencies are hardcoded in the amplifier firmware and cannot be changed.
+The RF2K-S HF Power Amplifier uses **fixed frequency segments** for storing tuning data. These segment sizes and their exact center frequencies are hardcoded in the amplifier firmware and cannot be changed.
 
 - Each band has a defined `segment_size` (e.g. 9 kHz on 80m) and a known `first_segment_center`.
 - These segment centers **rarely align with the official IARU band edges**, but this tool calculates the optimal center-aligned tuning points automatically – no manual adjustment needed.
 - You do **not** need to align `band_start` or `band_end` to any specific step or grid.
 
 > **Why center tuning matters:**  
-> RF2K-S stores one tuning memory per segment. Tuning off-center may result in suboptimal coverage, and any new tuning within the same segment will overwrite previous values. This tool always tunes at the exact center of each segment to ensure best coverage and minimal conflicts.
+> RF2K-S HF Power Amplifier stores one tuning memory per segment. Tuning off-center may result in suboptimal coverage, and any new tuning within the same segment will overwrite previous values. This tool always tunes at the exact center of each segment to ensure best coverage and minimal conflicts.
 
 
 ### Example: 6m band from IARU file
@@ -467,7 +496,7 @@ There are several ways you can help improve this project:
 
 - 🐞 **Report Bugs:** Found a bug or something not working as expected? Please open an issue describing the problem in detail.
 - 💡 **Suggest Enhancements:** Have an idea for a new feature or improvement? We'd love to hear it — open a feature request on GitHub.
-- 🧪 **Test and Validate:** Try the software with your own FlexRadio or RF2K-S setup. Let us know what works, what doesn't, and where things can be improved.
+- 🧪 **Test and Validate:** Try the software with your own FlexRadio or RF2K-S HF Power Amplifier setup. Let us know what works, what doesn't, and where things can be improved.
 - 🔧 **Contribute Code:** Found a bug and fixed it? Want to add support for more radios or features? Fork the repository and submit a pull request.
 - 📚 **Improve Documentation:** Typos, clarifications, or new explanations are always welcome. Good documentation helps everyone.
 
@@ -535,7 +564,7 @@ You are free to use, copy, modify, and distribute the software, as long as the o
 
 ## API Note: "Tune & Store"
 
-Currently, the RF2K-S amplifier requires **manual activation** of the **"Tune & Store"** function on the front panel during each tuning step.  
+Currently, the RF2K-S HF Power Amplifier requires **manual activation** of the **"Tune & Store"** function on the front panel during each tuning step.  
 Unfortunately, the [RFKit API (v0.9)](https://rf-power.eu/wp-content/uploads/2024/12/RFKIT_api_doc_0_9_0.html) does **not** offer any way to trigger this action remotely or programmatically.
 
 A formal feature request has been submitted to the RF-Kit development team to enable this capability via the API.  
@@ -550,10 +579,10 @@ We remain hopeful that a future firmware release will add support for fully auto
 Here are some useful links and documentation references that may assist with integration, troubleshooting, and further development:
 
 - 📘 [RFKIT API and SDK Documentation](https://rf-power.eu/wp-content/uploads/2024/12/RFKIT_api_doc_0_9_0.html)  
-  Official API documentation for RF2K-S amplifier control (v0.9)
+  Official API documentation for RF2K-S HF Power Amplifier control (v0.9)
 
 - 📖 [RF2K-S User Manual (June 2025)](https://rf-power.eu/wp-content/uploads/2025/06/RF2K-S_User_Manual_EN_06_25.pdf)  
-  Latest user manual for RF2K-S, including front panel operation and memory concepts
+  Latest user manual for RF2K-S HF Power Amplifier, including front panel operation and memory concepts
 
 - 🧠 [SmartSDR TCPIP API (FlexRadio)](https://github.com/flexradio/smartsdr-api-docs/wiki/SmartSDR-TCPIP-API)  
   Unofficial documentation of the FlexRadio TCP/IP API (used for CAT control)
