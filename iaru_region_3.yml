@@ -1,0 +1,52 @@
+# IARU Region Band limits
+# Region 3 — Asia-Pacific
+#
+# DO NOT ALTER ANYTHING IN THIS FILE!!!
+#
+# If you still alter this file, you will be on your own. Do not expect any support.
+# If you need to set custom band limits, you must do this in settings.yml.
+
+bands:
+  160m:
+    band_start: 1800
+    band_end: 2000
+
+  80m:
+    band_start: 3500
+    band_end: 3900
+
+  60m:
+    band_start: 5351.5
+    band_end: 5366.5
+
+  40m:
+    band_start: 7000
+    band_end: 7200
+
+  30m:
+    band_start: 10100
+    band_end: 10150
+
+  20m:
+    band_start: 14000
+    band_end: 14350
+
+  17m:
+    band_start: 18068
+    band_end: 18168
+
+  15m:
+    band_start: 21000
+    band_end: 21450
+
+  12m:
+    band_start: 24890
+    band_end: 24990
+
+  10m:
+    band_start: 28000
+    band_end: 29700
+
+  6m:
+    band_start: 50000
+    band_end: 54000

@@ -1,0 +1,11 @@
+*.code-workspace
+settings.yml
+PRIVATE_README.md
+*.log
+*.csv
+desktop.ini
+.vscode
+.release_template.md
+__pycache__
+*.exe
+*.bundle
