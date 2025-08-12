@@ -101,15 +101,18 @@ If Windows shows **“Windows protected your PC”**:
 
 ## Short Demo (Video)
 
-Watch a short demo video: first showing running band info command followed by tuning **60m**.
+<video src="https://github.com/user-attachments/assets/82b11ebf-c8e6-4de2-93b4-688a2936922d"
+       controls
+       width="840"
+       muted
+       playsinline>
+</video>
 
-[![Watch the short demo](./assets/images/short_demo_thumb.png)](https://raw.githubusercontent.com/tnxqso/rf2k-trainer/main/assets/videos/Short_Demo.mp4)
+<p><a href="https://github.com/user-attachments/assets/82b11ebf-c8e6-4de2-93b4-688a2936922d" target="_blank" rel="noopener">Open video in new tab</a></p>
 
 - Length: ~1 minute
 - What you’ll see: `.bat` launcher → `--info` band summary → guided tuning on 60m
-- Tip: If your browser doesn’t autoplay inside GitHub, just click once and GitHub will open a video player page.
 
-**Direct link (MP4):** [Short_Demo.mp4](assets/videos/Short_Demo.mp4)
 
 ## Why RF2K-TRAINER Exists
 
