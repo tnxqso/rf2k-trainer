@@ -108,7 +108,6 @@ If Windows shows **“Windows protected your PC”**:
        playsinline>
 </video>
 
-<p><a href="https://github.com/user-attachments/assets/82b11ebf-c8e6-4de2-93b4-688a2936922d" target="_blank" rel="noopener">Open video in new tab</a></p>
 
 - Length: ~1 minute
 - What you’ll see: `.bat` launcher → `--info` band summary → guided tuning on 60m
