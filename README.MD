@@ -103,7 +103,7 @@ If Windows shows **“Windows protected your PC”**:
 
 Watch a short demo video: first showing running band info command followed by tuning **60m**.
 
-[![Watch the short demo](./assets/images/short_demo_thumb.png)](./assets/videos/Short_Demo.mp4)
+[![Watch the short demo](./assets/images/short_demo_thumb.png)](https://raw.githubusercontent.com/tnxqso/rf2k-trainer/main/assets/videos/Short_Demo.mp4)
 
 - Length: ~1 minute
 - What you’ll see: `.bat` launcher → `--info` band summary → guided tuning on 60m
