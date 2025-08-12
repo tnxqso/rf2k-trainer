@@ -109,7 +109,7 @@ If Windows shows **“Windows protected your PC”**:
 </video>
 
 
-- Length: ~1 minute
+- Length: ~1 minute 30 secs
 - What you’ll see: `.bat` launcher → `--info` band summary → guided tuning on 60m
 
 

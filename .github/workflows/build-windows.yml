@@ -2,15 +2,19 @@ name: Build Windows EXE
 
 on:
   push:
-    branches: [ main, master ]
-    tags: [ 'v*' ]
-  pull_request:
-  workflow_dispatch:
+    tags:
+      - 'v*'            # build only when pushing a tag like v0.9.115
+  workflow_dispatch:     # optional: allow manual runs from Actions tab
+
+permissions:
+  contents: write        # needed for creating a release
 
 jobs:
   build-windows:
     name: Build Windows binary
     runs-on: windows-latest
+    # extra guard: run on tags starting with v OR when manually dispatched
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
 
     env:
       APP_NAME: rf2k-trainer
@@ -60,7 +64,6 @@ jobs:
         run: |
           $exe = Join-Path -Path "dist" -ChildPath "$env:APP_NAME.exe"
           if (!(Test-Path $exe)) { throw "EXE missing after build" }
-          # CI: disable figlet banner and answer "N" to the prompt
           $env:NO_FIGLET = '1'
           "N" | & $exe --info
           if ($LASTEXITCODE -ne 0) { throw "Non-zero exit code: $LASTEXITCODE" }
@@ -71,8 +74,10 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path "package" | Out-Null
           Copy-Item "dist\$env:APP_NAME.exe" "package\$env:APP_NAME.exe"
-          if (Test-Path "README.md") { Copy-Item "README.md" "package\README.md" }
-          if (Test-Path "CHANGELOG.md") { Copy-Item "CHANGELOG.md" "package\CHANGELOG.md" }
+          if (Test-Path "README.md")     { Copy-Item "README.md" "package\README.md" }
+          elseif (Test-Path "README.MD") { Copy-Item "README.MD" "package\README.MD" }
+          if (Test-Path "CHANGELOG.md")     { Copy-Item "CHANGELOG.md" "package\CHANGELOG.md" }
+          elseif (Test-Path "CHANGELOG.MD") { Copy-Item "CHANGELOG.MD" "package\CHANGELOG.MD" }
           if (Test-Path "settings.example.yml") { Copy-Item "settings.example.yml" "package\settings.example.yml" }
           if (Test-Path "rf2k-trainer.bat") { Copy-Item "rf2k-trainer.bat" "package\rf2k-trainer.bat" }
           if (Test-Path "LICENSE") { Copy-Item "LICENSE" "package\LICENSE" }
@@ -102,5 +107,6 @@ jobs:
           files: |
             dist/${{ env.APP_NAME }}.exe
             ${{ steps.pack.outputs.zip_name }}
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
