@@ -104,3 +104,98 @@ class RF2KSClient:
         except Exception as e:
             logger.error(f"[ERROR] Unexpected error while setting RF2K-S to {mode.upper()} mode: {e}")
             raise RF2KSClientError(f"Unexpected error while setting RF2K-S to {mode.upper()} mode: {e}")
+
+    def verify_frequency_match(self, expected_freq_mhz: float,
+                               max_tries: int = 10, delay_s: float = 0.5) -> None:
+        """Convenience wrapper around module-level verify_amp_frequency_match()."""
+        verify_amp_frequency_match(
+            base_url=self.base_url,
+            expected_freq_mhz=expected_freq_mhz,
+            max_tries=max_tries,
+            delay_s=delay_s,
+        )
+
+# --- Module level Frequency verification helpers (PA /data) ------------------------------
+
+def _normalize_hz(value, unit) -> int | None:
+    """
+    Convert a frequency {value, unit} pair to Hz (int).
+    Accepts unit in {"Hz","kHz","MHz"} (any case). Returns None on failure.
+    """
+    if value is None:
+        return None
+    try:
+        v = float(value)
+    except Exception:
+        return None
+
+    u = (unit or "").strip().lower()
+    if u == "hz" or u == "":
+        return int(round(v))
+    if u == "khz":
+        return int(round(v * 1e3))
+    if u == "mhz":
+        return int(round(v * 1e6))
+    return None
+
+
+def _truncate_to_khz(hz: int) -> int:
+    """
+    Truncate a Hz value down to the lower kHz boundary (no rounding).
+    Example: 14,255,999 Hz -> 14,255,000 Hz.
+    """
+    if hz is None:
+        return None
+    if hz < 0:
+        hz = 0
+    return (hz // 1000) * 1000
+
+
+def verify_amp_frequency_match(base_url: str,
+                               expected_freq_mhz: float,
+                               max_tries: int = 10,
+                               delay_s: float = 0.5) -> None:
+    """
+    Poll RF2K-S /data until the reported frequency matches the radio's set
+    frequency when truncated to the kHz boundary (no rounding).
+
+    Success condition:
+      truncate_kHz(amp_reported_hz) == truncate_kHz(expected_hz)
+
+    Raises:
+      RF2KSClientError if a match is not observed within the attempt budget.
+    """
+    expected_hz = int(round(float(expected_freq_mhz) * 1_000_000))
+    expected_trunc = _truncate_to_khz(expected_hz)
+
+    last_seen = None
+    last_err = None
+
+    for _ in range(max_tries):
+        try:
+            r = requests.get(f"{base_url}/data",
+                             headers={"Accept": "application/json"},
+                             timeout=1.5)
+            r.raise_for_status()
+            payload = r.json() or {}
+            freq = payload.get("frequency") or {}
+            hz = _normalize_hz(freq.get("value"), freq.get("unit"))
+            if hz is not None:
+                last_seen = hz
+                if _truncate_to_khz(hz) == expected_trunc:
+                    if logger:
+                        logger.debug(f"[RF2K-S] /data OK: amp={hz} Hz ~ radio={expected_hz} Hz (trunc kHz).")
+                    return
+        except Exception as e:
+            last_err = e
+
+        # Short backoff; the PA needs a brief moment to catch up with CAT
+        import time as _t
+        _t.sleep(delay_s)
+
+    msg = (f"/data did not report expected frequency (truncated kHz). "
+           f"expected≈{expected_trunc} Hz, got={_truncate_to_khz(last_seen)} Hz "
+           f"(raw last_seen={last_seen}); last_err={last_err!r}")
+    if logger:
+        logger.error(f"[RF2K-S] {msg}")
+    raise RF2KSClientError(msg)

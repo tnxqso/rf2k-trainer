@@ -105,14 +105,14 @@ class FlexRadioClient(BaseRadioClient):
 
     def disconnect(self):
         self.transport.disconnect()
-        self.logger.info("TCP connection closed")
+        self.logger.debug("TCP connection closed")
 
     close = disconnect
 
     def shutdown(self, restore: bool = True):
         if restore:
             if not self._orig.get("taken"):
-                self.logger.info("[RESTORE] skipped: no snapshot was taken earlier.")
+                self.logger.warning("[RESTORE] skipped: no snapshot was taken earlier.")
             else:
                 try:
                     self.restore_state()
@@ -221,7 +221,7 @@ class FlexRadioClient(BaseRadioClient):
             if self.debug:
                 self.logger.debug(f"[TUNE] already at {freq_mhz:.4f} MHz on slice {sid}; skipping")
             return
-        self.logger.info(f"[TUNE] Setting slice {sid} to {freq_mhz:.4f} MHz")
+        self.logger.debug(f"[TUNE] Setting slice {sid} to {freq_mhz:.4f} MHz")
         self._send_rc_checked(f"slice tune {sid} {freq_mhz:.4f}")
 
     def set_drive_power(self, rfpower: int):
@@ -309,22 +309,22 @@ class FlexRadioClient(BaseRadioClient):
     def restore_state(self):
         sid = self._orig.get("slice_id")
         if sid is None:
-            self.logger.info("[RESTORE] skipped: no snapshot available (no slice_id).")
+            self.logger.warning("[RESTORE] skipped: no snapshot available (no slice_id).")
             return
 
         mode = self._orig.get("mode")
         if mode:
-            self.logger.info(f"[RESTORE] mode={mode} on slice {sid}")
+            self.logger.debug(f"[RESTORE] mode={mode} on slice {sid}")
             self._send_rc_checked(f"slice set {sid} mode={mode}")
 
         f_mhz = self._orig.get("freq_mhz")
         if f_mhz is not None:
-            self.logger.info(f"[RESTORE] freq={f_mhz:.4f} MHz on slice {sid}")
+            self.logger.debug(f"[RESTORE] freq={f_mhz:.4f} MHz on slice {sid}")
             self._send_rc_checked(f"slice tune {sid} {f_mhz:.4f}")
         else:
-            self.logger.info("[RESTORE] freq is unknown; skipping frequency restore.")
+            self.logger.warning("[RESTORE] freq is unknown; skipping frequency restore.")
 
-        self.logger.info("[RESTORE] done")
+        self.logger.debug("[RESTORE] done")
 
     # ------------- Utilities -------------
 

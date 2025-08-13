@@ -3,7 +3,7 @@ import argparse
 import math
 import os
 try:
-    from pyfiglet import Figlet, FontNotFound  # optional
+    from pyfiglet import Figlet
 except Exception:
     Figlet = None
     class FontNotFound(Exception):
@@ -19,7 +19,6 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Type
 
 from radio_interface import BaseRadioError, BaseRadioClient
 from rf2ks_client import RF2KSClient, RF2KSClientError
-from ptt_flow import wait_for_carrier_or_manual
 from config_validation import validate_rigctl_settings
 from rf2ks_logger import log_tuner_data
 from radio_registry import RADIO_CLIENTS
@@ -34,7 +33,7 @@ if os.name == "nt":
         pass
 
 PROGRAM_NAME = "RF2K-Trainer"
-VERSION = "0.9.115"
+VERSION = "0.9.200"
 GIT_PROJECT_URL = "https://github.com/tnxqso/rf2k-trainer"
 AMPLIFIER_NAME = "RF2K-S HF Power Amplifier"
 
@@ -737,7 +736,7 @@ def _wait_event_with_dots(wait_fn, total_timeout: float, waiting_label: str) -> 
             print(" (still waiting)", end="", flush=True)
 
 
-def run_tuning_loop(radio_client: BaseRadioClient, ctx: AppContext) -> None:
+def run_tuning_loop(radio_client: BaseRadioClient, rf2ks: RF2KSClient, ctx: AppContext) -> None:
     """
     RF2K-Trainer main tuning loop.
 
@@ -825,6 +824,10 @@ def run_tuning_loop(radio_client: BaseRadioClient, ctx: AppContext) -> None:
         # Give the amplifier controller a short moment to pick up the CAT change
         _time.sleep(0.3)
 
+        # Verify PA sees the same (truncated kHz) frequency via /data
+        if getattr(ctx, "amp_settings", {}).get("enabled", False):
+            rf2ks.verify_frequency_match(expected_freq_mhz=freq_mhz)
+
         # Operator guidance for the segment
         print(f"""
 === Tuning {band_label} band @ {freq_mhz:.4f} MHz ===
@@ -833,6 +836,7 @@ def run_tuning_loop(radio_client: BaseRadioClient, ctx: AppContext) -> None:
 → While transmitting, tune and store match on your {AMPLIFIER_NAME}.
 → DO NOT unkey the transmitter until tuning is complete and stored.
 """.rstrip())
+        print()
 
         # Optional audible cue
         try:
@@ -1069,7 +1073,7 @@ def main() -> None:
             logger.warning(f"{AMPLIFIER_NAME} is not enabled, skipping {AMPLIFIER_NAME} operations.")
 
         show_instructions(ctx)
-        run_tuning_loop(radio_client, ctx)
+        run_tuning_loop(radio_client, rf2ks, ctx)
 
     finally:
         # Always clean up, restore state and exit nicely

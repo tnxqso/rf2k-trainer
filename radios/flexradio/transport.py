@@ -265,7 +265,7 @@ class FlexTransport:
 
                 if log_ack and rc is not None:
                     if rc == 0:
-                        self._logger.info(f"[ACK] rc=0 in {ack_ms} ms  cmd='{command}'")
+                        self._logger.debug(f"[ACK] rc=0 in {ack_ms} ms  cmd='{command}'")
                     else:
                         msg = f"[ACK] rc={rc} in {ack_ms} ms  cmd='{command}'  resp='{resp}'"
                         if warn_on_nonzero:
