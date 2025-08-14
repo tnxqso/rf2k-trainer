@@ -20,7 +20,6 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Type
 from radio_interface import BaseRadioError, BaseRadioClient
 from rf2ks_client import RF2KSClient, RF2KSClientError
 from config_validation import validate_rigctl_settings
-from rf2ks_logger import log_tuner_data
 from radio_registry import RADIO_CLIENTS
 from rigctld_manager import RigctldManager, RigCtldManagerError
 
@@ -33,7 +32,7 @@ if os.name == "nt":
         pass
 
 PROGRAM_NAME = "RF2K-Trainer"
-VERSION = "0.9.200"
+VERSION = "0.9.201"
 GIT_PROJECT_URL = "https://github.com/tnxqso/rf2k-trainer"
 AMPLIFIER_NAME = "RF2K-S HF Power Amplifier"
 
@@ -847,9 +846,10 @@ def run_tuning_loop(radio_client: BaseRadioClient, rf2ks: RF2KSClient, ctx: AppC
 
         # Decide PTT method for this segment
         ptt_supported = getattr(radio_client, "ptt_supported", True)
+        used_auto_ptt = False
 
         if ptt_supported and hasattr(radio_client, "wait_for_tx") and hasattr(radio_client, "wait_for_unkey"):
-            ok = _wait_event_with_dots(radio_client.wait_for_tx, total_timeout=90, waiting_label="Waiting for carrier")
+            ok = _wait_event_with_dots(radio_client.wait_for_tx, total_timeout=180, waiting_label="Waiting for carrier")
             if not ok:
                 logger.warning("[WAIT] Timeout waiting for carrier (event-driven). Skipping segment.")
                 continue
@@ -863,6 +863,7 @@ def run_tuning_loop(radio_client: BaseRadioClient, rf2ks: RF2KSClient, ctx: AppC
                 logger.warning("[WAIT] Timeout waiting for unkey (event-driven). Continuing.")
             else:
                 print("\n[PTT] Carrier stopped.")
+                used_auto_ptt = True
 
         elif not ptt_supported:
             # Manual path (e.g., rigctl Dummy) — announce once
@@ -922,7 +923,7 @@ def run_tuning_loop(radio_client: BaseRadioClient, rf2ks: RF2KSClient, ctx: AppC
         # Persist tuner data after each segment (if enabled)
         try:
             if getattr(ctx, "amp_settings", {}).get("enabled", False):
-                log_tuner_data(ctx.rf2ks_url)
+                rf2ks.log_tuner_data(used_auto_ptt)
         except Exception as e:
             logger and logger.debug(f"[LOG] log_tuner_data failed: {e}")
 

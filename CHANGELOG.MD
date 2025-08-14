@@ -5,6 +5,33 @@ All notable changes to RF2K-TRAINER will be documented in this file.
 ## [Unreleased]
 - Placeholder for upcoming changes
 
+## [v0.9.201] - 2025-08-14
+### ✨ Added
+- **RF2K-S `/data` frequency verification** after setting segment frequency: compares PA-reported frequency (truncated to kHz, no rounding) with the radio’s set value, with bounded retries.
+- **Post-unkey PA snapshot** via `/power`: a single read **0.2 s** after UNKEY (2.0 s timeout, no retries) to capture **`swr_final`** and **`drive_pwr`** for the segment.
+
+### 🛠 Changed
+- **CSV logging moved into the client**: `rf2ks_logger.py` removed; CSV logging now lives in `RF2KSClient.log_tuner_data()`.
+- `log_tuner_data()` now:
+  - always logs tuner state from `/tuner`;
+  - when **auto-PTT** was used, it internally calls `/power` once and appends `drive_pwr` and `swr_final`;
+  - when **manual PTT** was used, the two new columns are left blank.
+- `main.py`: tuning loop now passes `used_auto_ptt` to `rf2ks.log_tuner_data(...)`; no `/power` calls from `main` anymore.
+
+### 📦 CI / Packaging
+- Windows build workflow now **runs on tag pushes only** (`v*`) and `workflow_dispatch`.
+- Smoke test copies `settings.example.yml` → `settings.yml` before running `--info`, disables FIGLET in CI, and fails hard if the EXE is missing.
+- Release ZIP still bundles all required data files (`iaru_region_{1,2,3}.yml`, `rf2k_segment_alignment.yml`) plus the launcher BAT.
+
+### 🐛 Fixed
+- Avoid spurious mismatches by **truncating to kHz** for `/data` frequency comparisons (matches the RF2K-S front-panel display behavior).
+- Ensure CSV header is written exactly once even after refactor (no duplicate headers).
+
+### ⚠️ Notes
+- **Hamlib/rigctl remains experimental** — currently verified only against **Hamlib Dummy** (model 1). Real-rig reports (and PRs) are very welcome.
+- API load remains low: at most one `/power` request per segment **only** when auto-PTT was detected.
+
+
 ## [v0.9.115] - 2025-08-12
 ### 🔁 Repository baseline after history reset
 - The repository history was reset (squash/orphan re-init) to simplify the repo.

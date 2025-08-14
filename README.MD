@@ -29,11 +29,16 @@
 ### C. First run
 1. After extraction, the **rf2k-trainer** folder opens.
 2. Double‑click **`rf2k-trainer.bat`** (menu launcher).
+> The BAT file creates `settings.yml`, ensures a working `logs\` folder, and uses the recommended working directory.  
 3. On first run it will **create `settings.yml`** for you and offer to open it in **Notepad**.
 4. Click **Yes** to open **Notepad** and edit your settings:
    - **FlexRadio** users: set your radio’s IP in `radio.host` (port is usually `4992`). Leave `type: flex`.
    - **Hamlib rigctl** users: set `radio.type: rigctl` and **`rigctld_model`** (Hamlib model number). You may also set `rigctld_path` if Hamlib is not in PATH. The trainer can start `rigctld` automatically.
 5. Save the file in Notepad (**Ctrl+S**) and close Notepad. Return to the launcher window and press a key to continue.
+
+> ℹ️ The launcher may show a **folder warning** if you didn’t extract to `%USERPROFILE%\rf2k-trainer`.  
+> That’s okay—just confirm you intend to run it from your chosen folder.
+
 
 ### D. Use the menu
 - **1)** Run full tuning (all enabled bands)  
@@ -46,6 +51,9 @@
 If Windows shows **“Windows protected your PC”**:
 1. Click **More info**.
 2. Click **Run anyway**.
+
+> Note: the EXE is currently **unsigned**, so SmartScreen will appear on first run. This is expected.
+
 
 ### F. Upgrade later
 1. Close the trainer.
@@ -166,9 +174,14 @@ It’s a controlled, deterministic approach that reduces guesswork, while still 
 - Supports RF2K-S HF Power Amplifier fixed tuning segments
 - Detects and tunes sub-segment gaps at band edges
 - Logs debug output and tuner data to separate files in the `logs/` directory
+- Cross-checks radio frequency with **RF2K-S `/data`** (truncated to kHz, no rounding) after each segment frequency change.
+- Tuner CSV now also logs **drive_pwr** and **swr_final** (when PTT was auto-detected).
 
 
 ## Supported Radios
+
+> ⚠️ **rigctl is experimental**: currently verified only against **Hamlib Dummy (model 1)**.  
+> Real-rig testers and PRs are welcome—see [Contributing](#contributing).
 
 `rf2k-trainer` supports the following radio control interfaces:
 
@@ -197,6 +210,9 @@ This section guides you through installing RF2K-TRAINER and preparing your syste
 ---
 
 ### ⚙️ General Requirements (All Platforms)
+
+> ✅ **If you used the Windows EXE Quick Start above, you can skip this entire section.**  
+> These general requirements are primarily for source installs (developers, Linux/macOS, or advanced Windows setups).
 
 Before proceeding, ensure the following tools are installed:
 
@@ -426,6 +442,13 @@ This is a representative example using a FlexRadio and RF2K-S HF Power Amplifier
 
 ---
 
+## Logged Data (CSV)
+
+Each session writes a tuner CSV to `logs\tuning-results_<timestamp>.csv` with the following fields: `freq_kHz,segment_size_kHz,mode,setup,L_nH,C_pF,drive_pwr,swr_final`
+
+- `drive_pwr` and `swr_final` are populated **only when PTT was auto-detected** for that segment.  
+- In manual PTT mode, those two fields are left blank.
+
 
 ## Band Plan Overrides
 
@@ -500,6 +523,9 @@ This is the recommended way to run RF2K-TRAINER on Windows for casual users.
 
 
 ## Debugging and Troubleshooting
+
+**Common issue:** `Configuration file not found: settings.yml`  
+- Solution: run via **`rf2k-trainer.bat`** (it creates the file on first run), or copy **`settings.example.yml`** → **`settings.yml`** and edit it.
 
 - Check your radio connection settings in `settings.yml`:
   - For **FlexRadio**, verify the correct IP address and port (default: `4992`)
