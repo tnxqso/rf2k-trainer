@@ -16,7 +16,7 @@ class RF2KSClientError(Exception):
 
 
 class RF2KSClient:
-    def __init__(self, config):
+    def __init__(self, config: dict):
         """Initialize RF2K-S client and bind base_url from config."""
         global logger, tuner_logger
         if logger is None:
@@ -26,6 +26,7 @@ class RF2KSClient:
 
         amp_cfg = config.get("rf2k_s", {})
         self.enabled = amp_cfg.get("enabled", False)
+        self._interface = str(amp_cfg.get("interface", "CAT")).strip().upper()
         self.host = amp_cfg.get("host")
         self.port = amp_cfg.get("port", 8080)
         self.base_url = f"http://{self.host}:{self.port}"
@@ -295,6 +296,13 @@ class RF2KSClient:
 
         tuner_logger.info(f"{freq_kHz},{seg_size},{mode},{setup},{L},{C},{dp},{swr}")
 
+    def get_interface(self) -> str:
+        """Return RF2K-S operational interface as upper-case string (CAT/UNIV/UDP/TCI)."""
+        return self._interface
+
+    def is_cat_iface(self) -> bool:
+        """True if RF2K-S is configured to track the radio via CAT."""
+        return self._interface == "CAT"
 
 # --- Module level helpers -----------------------------------------------------
 

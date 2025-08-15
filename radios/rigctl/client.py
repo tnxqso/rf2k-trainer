@@ -1,4 +1,4 @@
-# rigctl_client.py
+# rigctl_client.py (a.k.a. your rigctl section in client.py)
 import os
 import socket
 import telnetlib
@@ -18,11 +18,22 @@ class RigctlError(BaseRadioError):
 
 class RigctlClient(BaseRadioClient):
     """
-    Hamlib rigctl network client.
+    Hamlib rigctl network client with optional event-driven PTT.
 
-    On Windows, uses raw TCP sockets by default (more reliable than telnetlib).
-    On other platforms, uses telnetlib unless you force sockets by flipping _use_socket.
+    Design:
+      - Transport: raw TCP on Windows (more reliable than telnetlib), telnetlib otherwise.
+      - A lightweight background thread polls 't' at a modest interval and updates
+        an internal PTT state machine guarded by a Condition. It enables event-driven
+        waits (wait_for_tx/unkey) without busy-waiting in the main loop.
+      - If rig/rigctld returns 'RPRT -11' for 't', we mark ptt_supported=False and
+        stop the event thread so the app can switch to MANUAL mode.
+      - On transient comm errors the thread attempts one reconnect. If that fails,
+        it disables event mode cleanly and the app can fall back to polling.
     """
+
+    # Capability flags consumed by the tuning loop
+    supports_event_ptt: bool = False
+    ptt_supported: bool = True  # may be flipped to False on RPRT -11
 
     def __init__(
         self,
@@ -34,6 +45,7 @@ class RigctlClient(BaseRadioClient):
         global logger
         if logger is None:
             logger = get_logger()
+
         self.host = host
         self.port = int(port)
         self.label = label
@@ -42,7 +54,7 @@ class RigctlClient(BaseRadioClient):
         # transport selection
         self._use_socket = (os.name == "nt")  # default to raw TCP on Windows
         self._sock: Optional[socket.socket] = None
-        self._sock_buf: bytes = b""  # persistent RX buffer for raw socket transport
+        self._sock_buf: bytes = b""
         self.conn: Optional[telnetlib.Telnet] = None
 
         self.connected = False
@@ -53,21 +65,30 @@ class RigctlClient(BaseRadioClient):
         self.width: Optional[int] = None
         self.freq_hz: Optional[int] = None
 
-        # capability hint (the app probes once; we maintain this flag)
-        self.ptt_supported: bool = True
+        # --- Event PTT machinery ---
+        # Condition protecting PTT booleans + edge notifications
+        self._ptt_cond = threading.Condition()
+        self._ptt_active = False
+        self._ptt_last = False  # for edge detection
+        self._evt_thread: Optional[threading.Thread] = None
+        self._evt_stop = threading.Event()
+        # Poll cadence is conservative to avoid overloading rigctld
+        self._poll_idle_s = 0.10   # while RX (no TX)
+        self._poll_tx_s = 0.05     # while TX (a bit faster for snappy unkey)
+        self._reconnect_once = True  # single automatic reconnect attempt
 
     # ---------------------------------------------------------------------
     # Public interface expected by the app
     # ---------------------------------------------------------------------
 
     def get_description(self) -> str:
-        """Human-friendly description for UI/logs."""
         return "Hamlib rigctld"
 
-    
     def connect(self):
-        """Establish connection to rigctld service (satisfies BaseRadioClient)."""
-        return self._connect()
+        """Establish connection to rigctld service and start PTT monitor thread."""
+        self._connect()
+        # Start event monitor thread; it will auto-disable if unsupported
+        self._start_ptt_monitor()
 
     def _connect(self, timeout: float = 5.0):
         """Open connection to rigctld and take an initial snapshot."""
@@ -82,7 +103,6 @@ class RigctlClient(BaseRadioClient):
             self.connected = True
             logger.info(f"Connected to rigctld at {self.host}:{self.port}")
         except Exception as e:
-            # Clear, actionable message
             logger.error(
                 "Failed to connect to rigctld at %s:%d. Is rigctld running? "
                 "If you disabled auto_start_rigctld in config, start it manually "
@@ -91,7 +111,7 @@ class RigctlClient(BaseRadioClient):
             )
             raise RigctlError(f"Failed to connect to rigctld: {e}")
 
-        # Best-effort snapshot, never fail connect on this
+        # Best-effort snapshot (never fail connect)
         try:
             self.snapshot_state()
         except Exception as e:
@@ -101,23 +121,19 @@ class RigctlClient(BaseRadioClient):
     def set_mode(self, mode: str = "CW", width: int = 400):
         mode = (mode or "CW").upper()
         self._send(f"M {mode} {int(width)}", quiet=False, expect_value=False)
-        # update cached snapshot
         self.mode, self.width = mode, int(width)
         logger.info(f"[MODE] Setting {mode} {width}")
 
     def set_frequency(self, freq_mhz: float):
-        # rigctl expects Hz as integer
         hz = int(round(freq_mhz * 1_000_000))
         self._send(f"F {hz}", quiet=False, expect_value=False)
-        # update cached snapshot
         self.freq_hz = hz
         logger.info(f"[FREQ] Setting {freq_mhz:.4f} MHz")
 
     def get_ptt(self) -> bool:
         """
-        Returns True if the radio reports TX, else False.
-        If the backend reports 'RPRT -11' (Feature not available), mark
-        ptt_supported=False so caller can switch to MANUAL flow.
+        One-shot PTT read (used by POLLING fallback).
+        Marks ptt_supported=False if 'RPRT -11' is observed.
         """
         resp = self._send("t", quiet=False, expect_value=True).strip()
         if resp == "":
@@ -138,11 +154,37 @@ class RigctlClient(BaseRadioClient):
                 logger.debug(f"[GET PTT] unexpected: '{resp}'")
             return False
 
+    # ---- Event-driven waits (exposed to the tuning loop) ----
+
+    def wait_for_tx(self, timeout: float = 90.0) -> bool:
+        """Block until TX asserted or timeout. Returns True if TX started."""
+        deadline = time.time() + max(0.0, timeout)
+        with self._ptt_cond:
+            while time.time() < deadline:
+                if self._ptt_active:
+                    return True
+                left = deadline - time.time()
+                self._ptt_cond.wait(timeout=min(0.25, max(0.0, left)))
+            return self._ptt_active
+
+    def wait_for_unkey(self, timeout: float = 300.0) -> bool:
+        """Block until TX deasserted or timeout. Returns True if TX stopped."""
+        deadline = time.time() + max(0.0, timeout)
+        with self._ptt_cond:
+            while time.time() < deadline:
+                if not self._ptt_active:
+                    return True
+                left = deadline - time.time()
+                self._ptt_cond.wait(timeout=min(0.25, max(0.0, left)))
+            return not self._ptt_active
+
     def disconnect(self):
         self.shutdown(restore=False)
 
     def shutdown(self, restore: bool = True):
-        """Close transports gracefully."""
+        """Stop monitor thread and close transports."""
+        self._stop_ptt_monitor()
+
         with self.lock:
             if self._sock:
                 try:
@@ -160,38 +202,28 @@ class RigctlClient(BaseRadioClient):
             self.connected = False
         logger.info("Disconnected from rigctld")
 
-    # Non portable in rigctl, keep method for API parity and warn user
     def set_drive_power(self, rfpower: int):
         logger.warning("Drive power cannot be set portably via rigctl, configure TX power on the radio.")
 
     # ---------------------------------------------------------------------
-    # Helpers
+    # Snapshot helpers
     # ---------------------------------------------------------------------
 
     def snapshot_state(self) -> None:
         """
-        Lightweight rigctl snapshot.
-
-        - Queries mode/width once via 'm' and frequency once via 'f'.
-        - Updates local cache (self.mode, self.width, self.freq_hz).
-        - Logs a single concise line:
-            [SNAPSHOT] mode=CW width=400Hz freq=5.354.800
-        (Width/frequency omitted if unknown.)
+        Lightweight rigctl snapshot of mode/width/frequency.
+        Logs a single concise line for visibility.
         """
-
-        # Read mode/width
         mode, width = self._get_mode()
         if mode:
             self.mode = mode
         if width is not None:
             self.width = width
 
-        # Read frequency (Hz)
         freq_hz = self._get_freq()
         if freq_hz is not None:
             self.freq_hz = freq_hz
 
-        # Helper: Hz -> 'M.KKK.HHH'
         def fmt_triplet(hz: int) -> str:
             mhz = hz // 1_000_000
             rem = hz % 1_000_000
@@ -199,23 +231,15 @@ class RigctlClient(BaseRadioClient):
             h   = rem % 1_000
             return f"{mhz}.{khz:03d}.{h:03d}"
 
-        # Build friendly one-liner
         parts = ["[SNAPSHOT]"]
         parts.append(f"mode={self.mode}" if self.mode else "mode=unknown")
         if self.width is not None:
             parts.append(f"width={self.width}Hz")
         if self.freq_hz is not None:
             parts.append(f"freq={fmt_triplet(self.freq_hz)}")
-
         logger.info(" ".join(parts))
 
     def _get_mode(self) -> Tuple[Optional[str], Optional[int]]:
-        """
-        Returns (mode, width). Some rigs (incl. Dummy) emit:
-            MODE\\n
-            WIDTH\\n
-        so we read a potential second line from the buffer/conn.
-        """
         resp = self._send("m", expect_value=True).strip()
         parts = resp.split()
         mode = parts[0].upper() if parts else None
@@ -227,7 +251,7 @@ class RigctlClient(BaseRadioClient):
             except ValueError:
                 width = None
         else:
-            # Try to read WIDTH from the next line (socket buffer or telnet)
+            # try read the next line for width
             try:
                 if self._use_socket:
                     extra = self._readline_socket(timeout=0.5)
@@ -264,21 +288,17 @@ class RigctlClient(BaseRadioClient):
     # ---------------------------------------------------------------------
 
     def _reconnect(self, timeout: float = 5.0):
-        """Reopen the transport, idempotent."""
+        """Reopen the transport, idempotent (used by event thread on error)."""
         with self.lock:
             try:
                 if self._sock:
-                    try:
-                        self._sock.close()
-                    except Exception:
-                        pass
+                    try: self._sock.close()
+                    except Exception: pass
                     self._sock = None
                     self._sock_buf = b""
                 if self.conn:
-                    try:
-                        self.conn.close()
-                    except Exception:
-                        pass
+                    try: self.conn.close()
+                    except Exception: pass
                     self.conn = None
 
                 if self._use_socket:
@@ -296,16 +316,12 @@ class RigctlClient(BaseRadioClient):
                 raise RigctlError(f"Failed to reconnect to rigctld: {e}")
 
     def _readline_socket(self, timeout: float = 2.5) -> bytes:
-        """
-        Return one LF-terminated line from raw socket.
-        Uses a persistent buffer so extra data is preserved for the next read.
-        """
+        """Return one LF-terminated line from raw socket using a persistent buffer."""
         if self._sock is None:
             return b""
 
         end = time.time() + timeout
 
-        # Serve from buffer if a full line is already present
         if b"\n" in self._sock_buf:
             line, self._sock_buf = self._sock_buf.split(b"\n", 1)
             return line
@@ -324,7 +340,6 @@ class RigctlClient(BaseRadioClient):
             except Exception:
                 break
 
-        # Timeout without full line: return whatever we have
         if self._sock_buf:
             line = self._sock_buf
             self._sock_buf = b""
@@ -352,7 +367,6 @@ class RigctlClient(BaseRadioClient):
                 if self.debug:
                     logger.debug(f"[rigctl] comm error, attempting reconnect: {e}")
                 self._reconnect()
-                # resend once
                 try:
                     if self._use_socket:
                         assert self._sock is not None
@@ -400,3 +414,94 @@ class RigctlClient(BaseRadioClient):
     # Optional, used by app when printing
     def get_label(self) -> str:
         return self.label
+
+    # ---------------------------------------------------------------------
+    # Event PTT background thread
+    # ---------------------------------------------------------------------
+
+    def _start_ptt_monitor(self):
+        """Spawn the background PTT monitor if not already running."""
+        if self._evt_thread and self._evt_thread.is_alive():
+            return
+        self._evt_stop.clear()
+        self._reconnect_once = True
+        self.supports_event_ptt = True  # optimistic; will auto-disable on RPRT -11
+        self._evt_thread = threading.Thread(
+            target=self._ptt_monitor_loop, name="rigctl-ptt", daemon=True
+        )
+        self._evt_thread.start()
+
+    def _stop_ptt_monitor(self):
+        """Stop the background PTT monitor if running."""
+        self._evt_stop.set()
+        t = self._evt_thread
+        if t and t.is_alive():
+            t.join(timeout=1.0)
+        self._evt_thread = None
+        # Do not flip supports_event_ptt here; keep last known state.
+
+    def _ptt_monitor_loop(self):
+        """
+        Poll 't' with modest cadence and notify waiters on state edges.
+        Handles:
+          - RPRT -11 -> mark ptt_supported=False, disable event support.
+          - Transport errors -> single reconnect attempt, then disable event support.
+        """
+        try:
+            while not self._evt_stop.is_set():
+                try:
+                    resp = self._send("t", quiet=True, expect_value=True).strip()
+                except Exception as e:
+                    # Transport hiccup: single reconnect attempt
+                    if self._reconnect_once:
+                        if self.debug:
+                            logger.debug(f"[PTT EVT] transport error: {e}, trying reconnect")
+                        try:
+                            self._reconnect()
+                            self._reconnect_once = False
+                            time.sleep(0.1)
+                            continue
+                        except Exception as e2:
+                            logger.debug(f"[PTT EVT] reconnect failed: {e2}")
+                    # Give up on event mode; keep app alive with polling
+                    self._disable_event_mode("transport error")
+                    return
+
+                if resp.upper().startswith("RPRT -11"):
+                    # No PTT capability -> MANUAL
+                    self.ptt_supported = False
+                    self._set_ptt_state(False)
+                    self._disable_event_mode("RPRT -11 (no PTT support)")
+                    return
+
+                # Parse 't' value
+                active = False
+                try:
+                    active = int(resp.split()[0]) != 0
+                except Exception:
+                    if self.debug:
+                        logger.debug(f"[PTT EVT] unexpected 't' response: '{resp}'")
+
+                self._set_ptt_state(active)
+
+                # Cadence: slower when idle, slightly faster while TX
+                time.sleep(self._poll_tx_s if active else self._poll_idle_s)
+
+        finally:
+            # On exit, leave supports_event_ptt as-is unless we explicitly disabled it.
+            return
+
+    def _set_ptt_state(self, active: bool):
+        """Update PTT state and notify waiters on edges."""
+        with self._ptt_cond:
+            self._ptt_active = bool(active)
+            if self._ptt_active != self._ptt_last:
+                self._ptt_last = self._ptt_active
+                self._ptt_cond.notify_all()
+
+    def _disable_event_mode(self, reason: str):
+        """Disable event-driven support; the app can fall back to polling or manual."""
+        if self.supports_event_ptt:
+            logger.debug(f"[PTT EVT] disabling event-driven mode: {reason}")
+        self.supports_event_ptt = False
+        # Do not flip ptt_supported here; that flag reflects capability of 't'.

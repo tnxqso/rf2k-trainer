@@ -8,20 +8,20 @@ except Exception:
     Figlet = None
     class FontNotFound(Exception):
         pass
-import platform
 import sys
 import time
 import yaml
-import socket
 
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Set, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 from radio_interface import BaseRadioError, BaseRadioClient
 from rf2ks_client import RF2KSClient, RF2KSClientError
 from config_validation import validate_rigctl_settings
 from radio_registry import RADIO_CLIENTS
 from rigctld_manager import RigctldManager, RigCtldManagerError
+from band_math import calculate_tuning_frequencies
+from tuning_loop import run_tuning_loop
+from app_context import AppContext
 
 # On Windows terminals, force UTF-8 so icons and accents render OK.
 if os.name == "nt":
@@ -32,7 +32,7 @@ if os.name == "nt":
         pass
 
 PROGRAM_NAME = "RF2K-Trainer"
-VERSION = "0.9.201"
+VERSION = "0.9.202"
 GIT_PROJECT_URL = "https://github.com/tnxqso/rf2k-trainer"
 AMPLIFIER_NAME = "RF2K-S HF Power Amplifier"
 
@@ -50,26 +50,6 @@ debug_mode = False
 class ConfigurationError(Exception):
     """Raised when the configuration is invalid or unsafe."""
     pass
-
-
-@dataclass
-class AppContext:
-    """Lightweight container for state shared across the run."""
-    logger: Any
-    config: Dict[str, Any]
-    debug_mode: bool
-    use_beep: bool
-    tuner_log_path: Optional[str]
-    rf2ks_url: str
-    segment_config: Dict[str, Any]
-    bands: Dict[str, Dict[str, Any]]
-    selected_bands: Set[str]
-    radio_settings: Dict[str, Any]
-    amp_settings: Dict[str, Any]
-    radio_type: Optional[str] = None
-    radio_label: Optional[str] = None
-    radio_description: Optional[str] = None
-    rigctld: Optional[Any] = None
 
 def print_banner_safe(title: str = "RF2K-TRAINER"):
     """Print a nice banner, but never crash if pyfiglet/fonts are missing."""
@@ -95,38 +75,6 @@ def show_banner_and_clear() -> None:
     """Banner at program start (kept slow for fun)."""
     print_banner_safe("RF2K-TRAINER")
     time.sleep(1.2)
-
-
-def pretty_duration(seconds: float, style: str = "auto") -> str:
-    """Format a duration in a human-friendly way.
-    style="auto": '1h 02m 05s', '22m 03s', '3.40 s', '850 ms'
-    style="clock": 'HH:MM:SS'
-    """
-    if seconds < 0:
-        seconds = 0.0
-
-    if style == "clock":
-        total = int(round(seconds))
-        h = total // 3600
-        m = (total % 3600) // 60
-        s = total % 60
-        return f"{h:02d}:{m:02d}:{s:02d}"
-
-    if seconds < 0.001:
-        return "0 ms"
-    if seconds < 1.0:
-        return f"{seconds * 1000:.0f} ms"
-    if seconds < 60.0:
-        return f"{seconds:.2f} s"
-
-    total = int(round(seconds))
-    h = total // 3600
-    m = (total % 3600) // 60
-    s = total % 60
-
-    if h > 0:
-        return f"{h}h {m}m {s:02d}s"
-    return f"{m}m {s:02d}s"
 
 
 def graceful_exit(
@@ -339,106 +287,6 @@ def validate_all_drive_power(ctx: AppContext) -> None:
         validate_drive_power(band_name, drive_power)
 
 
-# -------------------------
-# Tuning grid math
-# -------------------------
-def calculate_tuning_frequencies(band_start_khz: float,
-                                 band_end_khz: float,
-                                 segment_size_khz: float,
-                                 first_segment_center_khz: float) -> List[float]:
-    """
-    Compute tuning points that cover a band using a fixed segment width.
-
-    All internal math is done in Hz (integers) to avoid rounding drift.
-    Return values are floats in kHz to preserve 0.25/0.5/0.75 steps for printing.
-
-    Parameters
-    ----------
-    band_start_khz : float
-        Lower edge of the band (kHz), e.g. 5351.5 for 60 m WRC-15 start.
-    band_end_khz : float
-        Upper edge of the band (kHz), e.g. 5366.5 for 60 m WRC-15 end.
-    segment_size_khz : float
-        Segment width (kHz), e.g. 9.0 for 9 kHz segments.
-    first_segment_center_khz : float
-        A reference center on the segment grid (kHz). Full segments will be
-        placed at c0 + n * step, n ∈ ℤ. The first full segment is the one whose
-        left edge is >= band_start.
-
-    Returns
-    -------
-    List[float]
-        Tuning points in kHz (floats). These include:
-        - all FULL segment centers that fit entirely inside the band, and
-        - leading/trailing EDGE fillers at the center of any leftover gaps
-          between the band edges and the nearest full segment edges.
-
-        If no full segments fit at all, exactly two edge fillers are returned.
-    """
-    # Validate inputs
-    if band_end_khz <= band_start_khz:
-        return []
-
-    # Convert everything to Hz (integers)
-    bs = int(round(band_start_khz * 1000))
-    be = int(round(band_end_khz * 1000))
-    step = int(round(segment_size_khz * 1000))
-    if step <= 0:
-        raise ValueError("segment_size_khz must be > 0")
-
-    c0 = int(round(first_segment_center_khz * 1000))
-    half = step // 2  # integer half-width in Hz
-
-    # Find the first grid center whose LEFT edge is >= band_start:
-    #   c - half >= bs  =>  c >= bs + half
-    #   c = c0 + k*step  =>  k >= (bs + half - c0)/step
-    import math as _math
-    k_right = _math.ceil((bs + half - c0) / step)
-    c_right = c0 + k_right * step        # first candidate center
-    left_edge_right = c_right - half     # its left edge
-
-    points_hz: List[int] = []
-
-    # Collect all full segments entirely within the band
-    c = c_right
-    while (c - half) >= bs and (c + half) <= be:
-        points_hz.append(c)
-        c += step
-
-    if not points_hz:
-        # No full segments fit: produce TWO edge fillers
-        # Junction inside the band is at the left edge of the first would-be full segment.
-        # Clamp defensively to [bs, be].
-        L = max(bs, min(left_edge_right, be))
-
-        # Degenerate guard (extremely narrow band): just return band center
-        if L <= bs or L >= be:
-            mid_hz = (bs + be) // 2
-            return [mid_hz / 1000.0]  # kHz float
-
-        lead = bs + (L - bs) // 2          # center of leading gap
-        trail = be - (be - L) // 2         # center of trailing gap
-        return [lead / 1000.0, trail / 1000.0]  # kHz floats
-
-    # Edge fillers around the set of full segments (optional but recommended)
-    # Leading gap: from band start to the left edge of the first full segment
-    first_c = points_hz[0]
-    first_left = first_c - half
-    if first_left > bs:
-        lead = bs + (first_left - bs) // 2
-        points_hz.insert(0, lead)
-
-    # Trailing gap: from the right edge of the last full segment to band end
-    last_c = points_hz[-1]
-    last_right = last_c + half
-    if last_right < be:
-        trail = be - (be - last_right) // 2
-        points_hz.append(trail)
-
-    # Return kHz as floats (no truncation)
-    return [p / 1000.0 for p in points_hz]
-
-
 def print_band_info(band_name: str, band_data: dict, ctx: AppContext) -> int:
     """Pretty-print band tuning information and return # of points."""
     segment_size = band_data["segment_size"]
@@ -460,43 +308,6 @@ def print_band_info(band_name: str, band_data: dict, ctx: AppContext) -> int:
     print("Tuning frequencies (MHz):")
     print("  " + ", ".join(f"{f / 1000:.4f}" for f in tuning_freqs))
     return num_segments
-
-
-# -------------------------
-# rigctld availability helpers
-# -------------------------
-def is_tcp_port_open(host: str, port: int, timeout: float = 1.0, attempts: int = 2, backoff_s: float = 0.2) -> bool:
-    """Return True if a TCP connection to host:port can be established within timeout."""
-    for _ in range(max(1, attempts)):
-        try:
-            with socket.create_connection((host, int(port)), timeout=timeout):
-                return True
-        except Exception:
-            time.sleep(backoff_s)
-    return False
-
-
-def ensure_rigctld_available(radio_settings: Dict[str, Any], port: int) -> None:
-    """
-    Validate that an externally-managed rigctld is reachable before continuing.
-    Raises ConfigurationError with actionable instructions if not available.
-    """
-    host = radio_settings.get("host", "localhost")
-    if is_tcp_port_open(host, port, timeout=1.0, attempts=3):
-        return
-
-    # Build actionable guidance
-    model = radio_settings.get("model") or radio_settings.get("rigctld_model") or "<MODEL>"
-    serial_port = radio_settings.get("serial_port") or radio_settings.get("rigctld_serial_port") or "<COMx/ttyUSBx>"
-    rigctld_path = radio_settings.get("rigctld_path") or "rigctld"
-    example = f'"{rigctld_path}" -m {model} -r {serial_port} -t {port}'
-
-    msg = (
-        f"rigctld is not reachable at {host}:{port} (auto_start_rigctld=false).\n"
-        f"Start rigctld yourself, or set auto_start_rigctld: true in settings.yml.\n"
-        f"Example command:\n  {example}"
-    )
-    raise ConfigurationError(msg)
 
 
 def radio_setup(config: dict) -> Tuple[dict, str, str, Type[BaseRadioClient], Optional[str], Optional[RigctldManager]]:
@@ -559,39 +370,19 @@ def radio_setup(config: dict) -> Tuple[dict, str, str, Type[BaseRadioClient], Op
                 sys.exit(1)
         else:
             # Externally managed rigctld: ensure it's reachable now
-            ensure_rigctld_available(radio_settings, port)
+            RigctldManager.ensure_external_available(
+                rigctld_host=radio_settings.get("host", "localhost"),
+                port=port,
+                model=radio_settings.get("model") or radio_settings.get("rigctld_model"),
+                serial_port=radio_settings.get("serial_port") or radio_settings.get("rigctld_serial_port"),
+                rigctld_path=radio_settings.get("rigctld_path"),
+            )
             radio_description = "Hamlib rigctld (external)"
 
     elif radio_type == "flex":
         radio_description = "FlexRadio (SmartSDR TCP/IP API)"
 
     return radio_settings, radio_type, radio_label, radio_class, radio_description, rigctld
-
-
-def beep(enabled: bool = True) -> None:
-    """Short audible cue before each tuning step (optional)."""
-    if not enabled:
-        return
-    if platform.system() == "Windows":
-        try:
-            import winsound
-            winsound.Beep(1000, 300)
-        except Exception:
-            print("\a", end="")
-    else:
-        print("\a", end="")
-
-
-def countdown(seconds: int, message: str = "    →  Tuning next frequency") -> None:
-    """Simple countdown helper if we ever want a short delay between steps."""
-    for i in range(seconds, 0, -1):
-        sys.stdout.write(f"{message} in {i} second(s)...\r")
-        sys.stdout.flush()
-        time.sleep(1)
-    # Clear the line and add a clean newline so the next logger line won't collide
-    sys.stdout.write(" " * 80 + "\r")
-    sys.stdout.flush()
-    print()
 
 
 def create_context(
@@ -710,242 +501,6 @@ def show_instructions(ctx: AppContext) -> None:
     input("\n  Press ENTER to continue...")
 
 
-# --- Flex helper: wait on event with dotted progress ---
-def _wait_event_with_dots(wait_fn, total_timeout: float, waiting_label: str) -> bool:
-    """Calls a FlexRadioClient wait_* method in short steps to keep printing dots."""
-    print(f"[WAIT] {waiting_label}", end="", flush=True)
-    deadline = time.time() + total_timeout
-    step = 0.5
-    dots = 0
-    while True:
-        left = deadline - time.time()
-        if left <= 0:
-            print(" timeout.")
-            return False
-        if wait_fn(timeout=min(step, left)):
-            # standardized ending: 'detected.' for carrier, 'done.' for unkey
-            if "carrier" in waiting_label.lower():
-                print(" detected.")
-            else:
-                print(" done.")
-            return True
-        print(".", end="", flush=True)
-        dots += 1
-        if dots % 10 == 0:
-            print(" (still waiting)", end="", flush=True)
-
-
-def run_tuning_loop(radio_client: BaseRadioClient, rf2ks: RF2KSClient, ctx: AppContext) -> None:
-    """
-    RF2K-Trainer main tuning loop.
-
-    Behavior
-    --------
-    - Per-band setup (once per band): set CW mode (optional) and drive power if the client supports it.
-    - Per-segment: set frequency only, then wait for TX and UNKEY to let the operator tune the amplifier.
-    - PTT:
-        * Event-driven if the client exposes wait_for_tx()/wait_for_unkey() and ptt_supported is True.
-        * Otherwise fall back to polling get_ptt().
-        * If ptt_supported is False (e.g., rigctl Dummy), use MANUAL prompts (printed once per session).
-    - Tuning plan: generated from ctx.bands using calculate_tuning_frequencies(),
-      iterating bands in ctx.selected_bands order if available.
-    """
-    import time as _time
-    from radio_interface import BaseRadioError as _BaseRadioError
-
-    # ---------- Helpers ----------
-    def _band_iter():
-        """Yield (band_label, band_cfg) in the desired order."""
-        if getattr(ctx, "selected_bands", None):
-            for bname in ctx.selected_bands:
-                cfg = ctx.bands.get(bname)
-                if cfg:
-                    yield bname, cfg
-        else:
-            for bname, cfg in ctx.bands.items():
-                yield bname, cfg
-
-    # ---------- Constants / defaults ----------
-    auto_set_cw_mode = bool(ctx.config.get("defaults", {}).get("auto_set_cw_mode", True))
-    default_drive = int(ctx.config.get("defaults", {}).get("drive_power", 13))
-
-    total_segments = 0
-    seen_bands: Set[str] = set()
-    manual_mode_announced = False
-    t0 = _time.time()
-
-    # ---------- Build tuning plan (ordered by bands) ----------
-    plan: List[Tuple[str, float]] = []  # list[(band_label, freq_mhz)]
-    for band_label, b in _band_iter():
-        pts_khz = calculate_tuning_frequencies(
-            b["band_start"], b["band_end"], b["segment_size"], b["first_segment_center"]
-        )
-        # Convert kHz->MHz for execution/printing
-        for k in pts_khz:
-            plan.append((band_label, round(k / 1000.0, 4)))
-
-    if not plan:
-        logger.error("[FATAL] No tuning segments computed. Check band configuration.")
-        return
-
-    # ---------- Main loop ----------
-    last_band: Optional[str] = None
-    for band_label, freq_mhz in plan:
-        # New band block?
-        if band_label != last_band:
-            print()
-            logger.info(f"=== Band: {band_label} ===")
-            seen_bands.add(band_label)
-
-            # Per-band setup: mode + (if supported) drive power
-            try:
-                if auto_set_cw_mode:
-                    radio_client.set_mode("CW", 400)  # once per band
-
-                # Per-band drive: use band-specific override if present
-                drive_w = int(ctx.bands[band_label].get("drive_power", default_drive))
-                if hasattr(radio_client, "set_drive_power"):
-                    radio_client.set_drive_power(drive_w)  # clients may internally skip if unchanged
-            except _BaseRadioError as e:
-                logger.error(f"[RADIO] Band prep failed for {band_label}: {e}")
-                last_band = band_label
-                continue
-
-            last_band = band_label
-
-        # Per-segment: set frequency only
-        try:
-            radio_client.set_frequency(freq_mhz)
-        except _BaseRadioError as e:
-            logger.error(f"[RADIO] freq set failed {band_label} @ {freq_mhz:.4f} MHz: {e}")
-            continue
-
-        # Give the amplifier controller a short moment to pick up the CAT change
-        _time.sleep(0.3)
-
-        # Verify PA sees the same (truncated kHz) frequency via /data
-        if getattr(ctx, "amp_settings", {}).get("enabled", False):
-            rf2ks.verify_frequency_match(expected_freq_mhz=freq_mhz)
-
-        # Operator guidance for the segment
-        print(f"""
-=== Tuning {band_label} band @ {freq_mhz:.4f} MHz ===
-
-→ Begin transmitting a steady carrier (key down).
-→ While transmitting, tune and store match on your {AMPLIFIER_NAME}.
-→ DO NOT unkey the transmitter until tuning is complete and stored.
-""".rstrip())
-        print()
-
-        # Optional audible cue
-        try:
-            if getattr(ctx, "use_beep", False):
-                beep(True)
-        except Exception:
-            pass
-
-        # Decide PTT method for this segment
-        ptt_supported = getattr(radio_client, "ptt_supported", True)
-        used_auto_ptt = False
-
-        if ptt_supported and hasattr(radio_client, "wait_for_tx") and hasattr(radio_client, "wait_for_unkey"):
-            ok = _wait_event_with_dots(radio_client.wait_for_tx, total_timeout=180, waiting_label="Waiting for carrier")
-            if not ok:
-                logger.warning("[WAIT] Timeout waiting for carrier (event-driven). Skipping segment.")
-                continue
-
-            print("\n[PTT] Carrier detected — radio is transmitting.")
-            print(f"       → Tune your {AMPLIFIER_NAME} now.")
-            print(f"       → Keep transmitting! **AFTER** you finish tuning your {AMPLIFIER_NAME}, unkey (stop transmitting).")
-
-            ok2 = _wait_event_with_dots(radio_client.wait_for_unkey, total_timeout=300, waiting_label="Still transmitting")
-            if not ok2:
-                logger.warning("[WAIT] Timeout waiting for unkey (event-driven). Continuing.")
-            else:
-                print("\n[PTT] Carrier stopped.")
-                used_auto_ptt = True
-
-        elif not ptt_supported:
-            # Manual path (e.g., rigctl Dummy) — announce once
-            if not manual_mode_announced:
-                print("\n[PTT] This rig/rigctld does not report PTT (RPRT -11). Switching to MANUAL mode.")
-                manual_mode_announced = True
-
-            print("     → When you are READY to key a steady carrier, press ENTER, then key down.")
-            input("       Press ENTER to confirm you are about to key...")
-
-            print(f"\n       → Keep transmitting and tune/store on your {AMPLIFIER_NAME}.")
-            input("       Press ENTER AFTER you have UNKEYED (stopped transmitting)...")
-            print("\n[PTT] Carrier stopped (manual).")
-
-        else:
-            # Generic polling fallback
-            poll = 0.25  # conservative default
-            # Wait TX
-            print("[WAIT] Waiting for carrier", end="", flush=True)
-            dots = 0
-            while True:
-                try:
-                    if radio_client.get_ptt():
-                        print(" detected.")
-                        break
-                except _BaseRadioError as e:
-                    print(" x", end="", flush=True)
-                    logger.warning(f"[WAIT] radio error, retrying: {e}")
-                _time.sleep(poll)
-                print(".", end="", flush=True)
-                dots += 1
-                if dots % int(max(1, round(5.0 / poll))) == 0:
-                    print(" (still waiting)", end="", flush=True)
-
-            print("\n[PTT] Carrier detected — radio is transmitting.")
-            print(f"       → Tune your {AMPLIFIER_NAME} now.")
-            print(f"       → Keep transmitting! **AFTER** you finish tuning your {AMPLIFIER_NAME}, unkey (stop transmitting).")
-
-            # Wait UNKEY
-            print("[WAIT] Still transmitting", end="", flush=True)
-            dots = 0
-            while True:
-                try:
-                    if not radio_client.get_ptt():
-                        print(" done.")
-                        break
-                except _BaseRadioError as e:
-                    print(" ?", end="", flush=True)
-                    logger.warning(f"[WAIT] radio error, retrying: {e}")
-                _time.sleep(poll)
-                print(".", end="", flush=True)
-                dots += 1
-                if dots % int(max(1, round(5.0 / poll))) == 0:
-                    print(" (still waiting)", end="", flush=True)
-            print("\n[PTT] Carrier stopped.")
-
-        # Persist tuner data after each segment (if enabled)
-        try:
-            if getattr(ctx, "amp_settings", {}).get("enabled", False):
-                rf2ks.log_tuner_data(used_auto_ptt)
-        except Exception as e:
-            logger and logger.debug(f"[LOG] log_tuner_data failed: {e}")
-
-        total_segments += 1
-
-    # ---------- Summary ----------
-    elapsed = _time.time() - t0
-    avg = (elapsed / total_segments) if total_segments else 0.0
-    tot_str = pretty_duration(elapsed, style="auto")
-    avg_str = pretty_duration(avg, style="auto")
-    bands_count = len(seen_bands) if seen_bands else (len(getattr(ctx, "selected_bands", [])) or 1)
-
-    print(f"""
-    === TUNING COMPLETE ===
-    Bands tuned      : {bands_count}
-    Segments tuned   : {total_segments}
-    Total time       : {tot_str}
-    Avg time/segment : {avg_str}
-    =========================================
-    """.rstrip())
-
-
 def main() -> None:
     show_banner_and_clear()
 
@@ -969,11 +524,10 @@ def main() -> None:
     config = load_yaml_file("settings.yml")
     segment_config = load_rf2k_segment_alignment("rf2k_segment_alignment.yml")
 
-    # Prompt to clear logs if not using --info
+    # Optional prompt to clear logs unless --info
     response = "n"
     if not args.info:
         response = input("Do you want to delete old log files? (y/N): ").strip().lower() or "n"
-
     clear_old = args.clear_logs or response == "y"
 
     from loghandler import setup_logging
@@ -1015,6 +569,7 @@ def main() -> None:
     logger.debug("Logger is initialized")
     restore = bool(config.get("defaults", {}).get("restore_state", True))
 
+    # --info mode: just print band data and exit
     if args.info:
         print(f"{PROGRAM_NAME} - v{VERSION} - Band Information")
         total_segments = 0
@@ -1042,6 +597,8 @@ def main() -> None:
     """)
 
     radio_client: Optional[BaseRadioClient] = None
+    rf2ks: Optional[RF2KSClient] = None  # <-- ensure defined even when PA is disabled
+
     try:
         # Radio client setup and connect
         logger.info(f"\nConnecting to {ctx.radio_label} at {ctx.radio_settings.get('host')}:{ctx.radio_settings.get('port')}...")
@@ -1050,22 +607,19 @@ def main() -> None:
         validate_rigctl_settings(ctx, logger)
         radio_client.connect()
 
-        # --- One-time PTT capability detection (no delay at beep) ---
+        # One-time PTT capability detection (rigctl)
         if ctx.radio_type == "rigctl":
             if "dummy" in (ctx.radio_description or "").lower():
-                # Hamlib Dummy has no PTT → go manual for the whole run
                 setattr(radio_client, "ptt_supported", False)
                 logger.debug("[PTT] Dummy rig detected -> manual mode for this session.")
             else:
-                # One quick probe now so later flow won't block
                 try:
                     _ = radio_client.get_ptt()
-                    # get_ptt() will set radio_client.ptt_supported=False if RPRT -11
                     logger.debug(f"[PTT] capability: {getattr(radio_client, 'ptt_supported', True)}")
                 except BaseRadioError as e:
                     logger.debug(f"[PTT] initial probe failed (ignored): {e}")
 
-        # Amplifier setup
+        # Amplifier setup (optional)
         if ctx.amp_settings.get("enabled", False):
             rf2ks = RF2KSClient(ctx.config)
             rf2ks.fetch_info()
@@ -1074,6 +628,7 @@ def main() -> None:
             logger.warning(f"{AMPLIFIER_NAME} is not enabled, skipping {AMPLIFIER_NAME} operations.")
 
         show_instructions(ctx)
+        # Safe even if rf2ks is None
         run_tuning_loop(radio_client, rf2ks, ctx)
 
     finally:

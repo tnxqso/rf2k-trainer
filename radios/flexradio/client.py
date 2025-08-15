@@ -29,6 +29,7 @@ class FlexRadioClient(BaseRadioClient):
     """
 
     # Capability used by main tuning loop (Flex supports PTT read)
+    supports_event_ptt: bool = True
     ptt_supported: bool = True
 
     def __init__(self, host: str, port: int, debug: bool = False):

@@ -236,3 +236,62 @@ class RigctldManager:
 
     def get_description(self) -> Optional[str]:
         return self.rig_description
+
+    # -----------------------------
+    # Static helpers (external use)
+    # -----------------------------
+    @staticmethod
+    def _is_tcp_port_open(host: str, port: int, timeout: float = 1.0,
+                        attempts: int = 2, backoff_s: float = 0.2) -> bool:
+        """Return True if a TCP connection to host:port can be established."""
+        import socket, time as _time
+        for _ in range(max(1, attempts)):
+            try:
+                with socket.create_connection((host, int(port)), timeout=timeout):
+                    return True
+            except Exception:
+                _time.sleep(backoff_s)
+        return False
+
+    @staticmethod
+    def ensure_external_available(rigctld_host: str,
+                                port: int,
+                                model: int | None = None,
+                                serial_port: str | None = None,
+                                rigctld_path: str | None = None,
+                                attempts: int = 3,
+                                timeout: float = 1.0,
+                                backoff_s: float = 0.2) -> None:
+        """
+        Ensure an externally-managed **rigctld** is reachable.
+
+        - Tries the given rigctld_host first.
+        - If rigctld_host is 'localhost' or '::1', also tries '127.0.0.1' (Windows IPv6 quirk).
+        - Example command omits '-r' for Dummy (model 1).
+        """
+        host = rigctld_host
+        if RigctldManager._is_tcp_port_open(host, port, timeout=timeout,
+                                            attempts=attempts, backoff_s=backoff_s):
+            return
+
+        tried_backup = False
+        if host in {"localhost", "::1"}:
+            tried_backup = True
+            if RigctldManager._is_tcp_port_open("127.0.0.1", port, timeout=timeout,
+                                                attempts=attempts, backoff_s=backoff_s):
+                return
+
+        rigctld_bin = rigctld_path or "rigctld"
+        model_hint  = model if model is not None else "<MODEL>"
+        serial_hint = serial_port if serial_port else "<COMx/ttyUSBx>"
+
+        example = (f'"{rigctld_bin}" -m {model_hint} -t {port}'
+                if model == 1 else
+                f'"{rigctld_bin}" -m {model_hint} -r {serial_hint} -t {port}')
+
+        extra = " (also tried 127.0.0.1)" if tried_backup else ""
+        raise RigCtldManagerError(
+            f"rigctld is not reachable at {host}:{port}{extra} (auto_start_rigctld=false).\n"
+            f"Start rigctld yourself, or set auto_start_rigctld: true in settings.yml.\n"
+            f"Example command:\n  {example}"
+        )

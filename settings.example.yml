@@ -32,7 +32,14 @@ defaults:
   # How long to wait for PTT to toggle before falling back to manual prompts (seconds).
   # For rigctl dummy (or when PTT is not supported), the program switches to manual immediately.
   ptt_adaptive_fallback_after: 30.0
-  
+
+  # Show green/red one-line status during auto-PTT
+  use_color_status: true
+
+  # Tuning guidance mode
+  guidance_mode: compact          # compact | once_per_band | verbose
+
+
 # Radio connection settings
 radio:
   type: flex                         # "flex" for FlexRadio, or "rigctl" for Hamlib/rigctld-supported radios
@@ -50,6 +57,17 @@ rf2k_s:
   enabled: true # Enable or disable communication with the RF2K-S HF Power Amplifier amplifier
   host: 192.168.20.200 # Hostname or IP address of the RF2K-S HF Power Amplifier
   port: 8080 # Port number for RF2K-S HF Power Amplifier connection, 8080 is the default
+
+  # Operational interface by which the RF2K-S derives the radio frequency.
+  # Allowed values:
+  #   CAT  - the amp tracks the radio via CAT/CAT-proxy (verify via /data is meaningful)
+  #   UNIV - "universal"/RF sniffing; /data frequency may lag or be untrustworthy pre/post TX
+  #   UDP  - vendor-specific UDP link
+  #   TCI  - TCI link (e.g., ExpertSDR)
+  #
+  # The trainer only runs rf2ks.verify_data_frequency() when interface == CAT,
+  # and will skip the check for other modes (and for rigctl Dummy).
+  interface: CAT
 
 # Band-specific settings
 # Each band can be enabled or disabled, and you can set a band specific drive power.
