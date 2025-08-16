@@ -1,0 +1,172 @@
+name: build-windows
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-win:
+    name: Build & Release Windows Installer
+    runs-on: windows-latest
+    env:
+      PYTHON_VERSION: '3.11'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Derive version from tag
+        id: ver
+        shell: pwsh
+        run: |
+          $v = "${{ github.ref_name }}"
+          if ($v -match '^v') { $v = $v.Substring(1) }
+          echo "version=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $v"
+
+      - name: Setup Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          if (Test-Path 'requirements.txt') {
+            pip install -r requirements.txt
+          }
+          if (-not (pip show pyinstaller)) {
+            pip install pyinstaller
+          }
+
+      - name: Build application (PyInstaller)
+        shell: pwsh
+        run: |
+          if (Test-Path 'rf2k-trainer.spec') {
+            pyinstaller --noconfirm rf2k-trainer.spec
+          } else {
+            if (-not (Test-Path 'main.py')) {
+              Write-Error "main.py not found and no rf2k-trainer.spec present."
+              exit 1
+            }
+            # Bundle pyfiglet fonts so FIGLET output works in the onefile build
+            pyinstaller --noconfirm --onefile --name rf2k-trainer main.py --clean `
+              --collect-data pyfiglet
+          }
+          if (-not (Test-Path 'dist/rf2k-trainer.exe')) {
+            Write-Host "Listing dist:"
+            Get-ChildItem -Recurse dist | Format-List -Force
+            Write-Error "dist\\rf2k-trainer.exe was not produced by PyInstaller."
+            exit 1
+          }
+
+      - name: Install Inno Setup (ISCC)
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            Write-Error "Could not find ISCC.exe"
+            exit 1
+          }
+          echo "ISCC=$iscc" >> $env:GITHUB_OUTPUT
+
+      - name: Verify files to be packaged
+        shell: pwsh
+        run: |
+          $root = (Get-Location).Path
+          $required = @(
+            "installer\rf2k-trainer.iss",
+            "rf2k-trainer.bat",
+            "settings.example.yml",
+            "iaru_region_1.yml",
+            "iaru_region_2.yml",
+            "iaru_region_3.yml",
+            "rf2k_segment_alignment.yml",
+            "README.md",
+            "CHANGELOG.md",
+            "dist\rf2k-trainer.exe"
+          )
+          foreach ($rel in $required) {
+            $p = Join-Path $root $rel
+            if (Test-Path $p) { Write-Host "[OK] $rel" } else { Write-Host "[MISS] $rel" }
+          }
+
+      - name: Build installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          $iss = Resolve-Path "installer\rf2k-trainer.iss"
+          $appbin = Resolve-Path "dist\rf2k-trainer.exe"
+          Push-Location (Split-Path -Parent $iss)
+          try {
+            Write-Host "Using Inno script: $([IO.Path]::GetFileName($iss)) at $(Get-Location)"
+            Write-Host "AppBin: $appbin"
+            & $iscc /Qp "/DAppVersion=${{ steps.ver.outputs.version }}" "/DAppBin=$appbin" "rf2k-trainer.iss"
+          } finally {
+            Pop-Location
+          }
+
+      - name: Locate installer
+        id: locate
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem "installer" -File -Filter 'RF2K-TRAINER_*_Setup.exe' | Select-Object -First 1
+          if (-not $setup) {
+            Get-ChildItem -Recurse -File -Filter '*.exe' | ForEach-Object { Write-Host "EXE: $($_.FullName)" }
+            throw "Installer not found in installer\ folder. Check OutputDir and .iss."
+          }
+          echo "path=$($setup.FullName)" >> $env:GITHUB_OUTPUT
+          Write-Host "Installer: $($setup.FullName)"
+
+      - name: Upload artifact (for CI debugging)
+        uses: actions/upload-artifact@v4
+        with:
+          name: RF2K-TRAINER-Setup
+          path: ${{ steps.locate.outputs.path }}
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Create/Update GitHub Release (attach installer only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.locate.outputs.path }}
+          generate_release_notes: true
+
+      - name: Prune unwanted assets (raw exe / portable zips)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = context.ref.replace('refs/tags/','');
+            const {data: release} = await github.rest.repos.getReleaseByTag({
+              owner: context.repo.owner, repo: context.repo.repo, tag
+            });
+            const keepRe = /^RF2K-TRAINER_.*_Setup\.exe$/i;
+            const remove = release.assets.filter(a =>
+              !keepRe.test(a.name) && !/^Source code \(.+\)$/i.test(a.name)
+            );
+            for (const a of remove) {
+              core.info(`Deleting asset: ${a.name}`);
+              await github.rest.repos.deleteReleaseAsset({
+                owner: context.repo.owner, repo: context.repo.repo, asset_id: a.id
+              });
+            }

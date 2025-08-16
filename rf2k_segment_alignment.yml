@@ -1,0 +1,45 @@
+rf2k_segment_alignment:
+  160m:
+    segment_size: 9
+    first_segment_center: 1807.5  # Covers 1803.000 – 1812.999, IARU1 band start = 1800
+
+  80m:
+    segment_size: 9
+    first_segment_center: 3508.5  # Covers 3504.000 – 3512.999, IARU1 band start = 3500
+
+  60m:
+    segment_size: 9
+    first_segment_center: 5362.5  # Covers 5358.000 – 5366.999, IARU1 band start = 5351.5
+
+  40m:
+    segment_size: 25
+    first_segment_center: 7029.5  # Covers 7017.000 – 7041.999, IARU1 band start = 7000
+
+  30m:
+    segment_size: 25
+    first_segment_center: 10129.5  # Covers 10117.000 – 10141.999, IARU1 band start = 10100
+
+  20m:
+    segment_size: 51
+    first_segment_center: 14052.5  # Covers 14027.000 – 14077.999, IARU1 band start = 14000
+
+  17m:
+    segment_size: 51
+    first_segment_center: 18132.5  # Covers 18107 – 18157.999, IARU1 band start = 18068
+
+  15m:
+    segment_size: 75
+    first_segment_center: 21056.5  # Covers 21019 – 21093.999, IARU1 band start = 21000
+
+  12m:
+    segment_size: 75
+    first_segment_center: 24956.5  # Covers 24919.000 – 24990.999 due to band end at 24990 (otherwise 24993.999), IARU1 band start = 24890, band end at 24990
+    segment_effective_band_witdth: 71
+
+  10m:
+    segment_size: 75
+    first_segment_center: 28037.5  # Covers 28000.000 – 28074.999, IARU1 band start = 28000
+
+  6m:
+    segment_size: 101
+    first_segment_center: 50050.5  # Covers 50000.000 – 50100.999, IARU1 band start = 50000

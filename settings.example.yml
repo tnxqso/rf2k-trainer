@@ -1,0 +1,144 @@
+# Default configuration
+defaults:
+  # IARU region affects band plans limits (start and end frequencies).
+  # 1 = Europe/Africa, 2 = Americas, 3 = Asia-Pacific.
+  # These values determine regional band limits unless overridden per-band.
+  iaru_region: 1
+
+  # Drive power (in watts) used during TUNE procedure.
+  # IMPORTANT: RF2K-S requires drive power between 4 and 39 W.
+  # If the power is outside this range, the amplifier tuner will not activate.
+  # Although tuning works from 4 W, at least 10 W is recommended for best results.
+  # Default is 13 W which is most likely both safe and effective.
+  # This only applies to FlexRadio clients. rigctl clients must set the power manually.
+  drive_power: 13
+
+  # Enable audible beep before each tuning step (true/false).
+  # Helps indicate when to manually key yhe radio to emitt the RF signal.
+  use_beep: true
+
+  # Automatically set CW mode before tuning (true/false).
+  # Set to false if you prefer to manually control TX mode (e.g., CW, AM, RTTY).
+  auto_set_cw_mode: true
+
+  # This will restore the radio to the last used mode and frequency after tuning is complete.
+  restore_state: true
+
+  # Force manual PTT workflow regardless of backend capability.
+  # Set to true if your rig backend does not expose reliable PTT sensing,
+  # or when operating through rigctl dummy or other limited interfaces.
+  force_manual_ptt: false
+
+  # How long to wait for PTT to toggle before falling back to manual prompts (seconds).
+  # For rigctl dummy (or when PTT is not supported), the program switches to manual immediately.
+  ptt_adaptive_fallback_after: 30.0
+
+  # Show green/red one-line status during auto-PTT
+  use_color_status: true
+
+  # Tuning guidance mode
+  guidance_mode: compact          # compact | once_per_band | verbose
+
+
+# Radio connection settings
+radio:
+  type: flex                         # "flex" for FlexRadio, or "rigctl" for Hamlib/rigctld-supported radios
+  host: 192.168.20.100               # IP/hostname of radio (e.g., FlexRadio). Use "localhost" for rigctld.
+  port: 4992                         # Default: 4992 for FlexRadio, 4532 for rigctld
+
+  # (Optional) rigctld auto-launch support for Hamlib radios, not needed for FlexRadio.
+  auto_start_rigctld: false          # If true, rf2k-trainer will attempt to start rigctld if not running
+  rigctld_path: 'C:\Program Files\hamlib-w64-4.6.4\bin\rigctld.exe'  # Full path to rigctld.exe if auto-launch is enabled
+  rigctld_model: 2032                # Rig model number (use rigctl -l to find your radio)
+  rigctld_serial_port: COM4          # Serial port for radio connection (e.g., COM3, COM4)
+
+# RF2K-S HF Power Amplifier configuration
+rf2k_s:
+  enabled: true # Enable or disable communication with the RF2K-S HF Power Amplifier amplifier
+  host: 192.168.20.200 # Hostname or IP address of the RF2K-S HF Power Amplifier
+  port: 8080 # Port number for RF2K-S HF Power Amplifier connection, 8080 is the default
+
+  # Operational interface by which the RF2K-S derives the radio frequency.
+  # Allowed values:
+  #   CAT  - the amp tracks the radio via CAT/CAT-proxy (verify via /data is meaningful)
+  #   UNIV - "universal"/RF sniffing; /data frequency may lag or be untrustworthy pre/post TX
+  #   UDP  - vendor-specific UDP link
+  #   TCI  - TCI link (e.g., ExpertSDR)
+  #
+  # The trainer only runs rf2ks.verify_data_frequency() when interface == CAT,
+  # and will skip the check for other modes (and for rigctl Dummy).
+  interface: CAT
+
+# Band-specific settings
+# Each band can be enabled or disabled, and you can set a band specific drive power.
+# Custom band limits can be set, but they will override the IARU region defaults.
+# If you do not need to override the defaults, you can leave these commented out.
+# It's recommended to keep the band limits commented out unless you have specific requirements
+# and know exactly what you are doing as it may lead to incorrect tuning if set improperly.
+# You have been warned!
+bands:
+  160m:
+    enabled: false # Enable or disable tuning for 160m band, true means enabled
+    # drive_power: 13 # Uncomment and set custom drive power if needed, otherwise default will be used
+    # band_start: 1800
+    # band_end: 2000
+
+  80m:
+    enabled: true # Enable or disable tuning for 80m band, true means enabled
+    # drive_power: 13 # Uncomment and set custom drive power if needed, otherwise default will be used
+    #band_start: 3500
+    #band_end: 3800
+
+  60m:
+    enabled: true # Enable or disable tuning for 60m band, true means enabled
+    # drive_power: 13 # Uncomment and set custom drive power if needed, otherwise default will be used
+    #band_start: 5351.5
+    #band_end: 5366.5
+
+  40m:
+    enabled: true # Enable or disable tuning for 40m band, true means enabled
+    # drive_power: 13 # Uncomment and set custom drive power if needed, otherwise default will be used
+    # band_start: 7000
+    # band_end: 7200
+
+  30m:
+    enabled: true # Enable or disable tuning for 30m band, true means enabled
+    # drive_power: 13 # Uncomment and set custom drive power if needed, otherwise default will be used
+    # band_start: 10100
+    # band_end: 10150
+
+  20m:
+    enabled: true # Enable or disable tuning for 20m band, true means enabled
+    # drive_power: 13 # Uncomment and set custom drive power if needed, otherwise default will be used
+    # band_start: 14000
+    # band_end: 14350
+
+  17m:
+    enabled: true # Enable or disable tuning for 17m band, true means enabled
+    # drive_power: 13 # Uncomment and set custom drive power if needed, otherwise default will be used
+    # band_start: 18068
+    # band_end: 18168
+
+  15m:
+    enabled: true # Enable or disable tuning for 15m band, true means enabled
+    # drive_power: 13 # Uncomment and set custom drive power if needed, otherwise default will be used
+    # band_start: 21000
+    # band_end: 21450
+
+  12m:
+    enabled: true # Enable or disable tuning for 12m band, true means enabled
+    # drive_power: 13 # Uncomment and set custom drive power if needed, otherwise default will be used
+    # band_start: 24890
+    # band_end: 24990
+
+  10m:
+    enabled: true # Enable or disable tuning for 10m band, true means enabled
+    # drive_power: 13 # Uncomment and set custom drive power if needed, otherwise default will be used
+    # band_start: 28000
+    # band_end: 29700
+
+  6m:
+    enabled: false # Disable tuning for 6m band, true means enabled
+    # drive_power: 13 # Uncomment and set custom drive power if needed, otherwise default will be used
+    # band_start: 50000
+    # band_end: 52000
