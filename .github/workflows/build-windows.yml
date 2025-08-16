@@ -1,24 +1,28 @@
 name: Build Windows EXE
 
 on:
+  # Build on version tags (e.g. v0.9.202) and allow manual runs
   push:
-    tags:
-      - 'v*'            # build only when pushing a tag like v0.9.115
-  workflow_dispatch:     # optional: allow manual runs from Actions tab
+    tags: [ 'v*' ]
+  workflow_dispatch:
 
 permissions:
-  contents: write        # needed for creating a release
+  contents: write
+
+concurrency:
+  group: build-windows-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build-windows:
-    name: Build Windows binary
+    name: Build Windows installer
     runs-on: windows-latest
-    # extra guard: run on tags starting with v OR when manually dispatched
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
 
     env:
       APP_NAME: rf2k-trainer
       ENTRYPOINT: main.py
+      ICON_PATH: assets\icons\rf2k-trainer.ico
+      ISS_SCRIPT: rf2k-trainer.iss
 
     steps:
       - name: Checkout
@@ -44,69 +48,79 @@ jobs:
           if (Test-Path "requirements.txt") { pip install -r requirements.txt }
           pip install pyinstaller
 
-      - name: Build with PyInstaller (collect all pyfiglet)
+      - name: Verify required files exist
+        shell: pwsh
+        run: |
+          if (!(Test-Path $env:ICON_PATH)) { throw "Icon not found: $env:ICON_PATH" }
+          if (!(Test-Path $env:ISS_SCRIPT)) { throw "Inno Setup script not found: $env:ISS_SCRIPT" }
+          @(
+            "settings.example.yml",
+            "iaru_region_1.yml",
+            "iaru_region_2.yml",
+            "iaru_region_3.yml",
+            "rf2k_segment_alignment.yml"
+          ) | ForEach-Object {
+            if (!(Test-Path $_)) { throw "Required data file missing: $_" }
+          }
+
+      - name: Build one-file EXE with PyInstaller (embed icon, collect pyfiglet)
         shell: pwsh
         run: |
           pyinstaller --noconfirm --clean --onefile --console `
             --collect-all pyfiglet `
-            --name $env:APP_NAME $env:ENTRYPOINT
+            --icon "$env:ICON_PATH" `
+            --name "$env:APP_NAME" `
+            "$env:ENTRYPOINT"
           if (!(Test-Path "dist\$env:APP_NAME.exe")) { throw "EXE was not created" }
 
-      - name: Prepare runtime files for smoke test
+      - name: Smoke test EXE (non-interactive --info)
         shell: pwsh
         run: |
-          if (!(Test-Path "settings.example.yml")) { throw "settings.example.yml not found in repository root" }
+          $exe = Join-Path "dist" "$env:APP_NAME.exe"
+          if (!(Test-Path $exe)) { throw "EXE missing after build" }
+          # CI: shrink banner; answer "N" to log cleanup prompt
+          $env:NO_FIGLET = '1'
           Copy-Item -LiteralPath "settings.example.yml" -Destination "settings.yml" -Force
           New-Item -ItemType Directory -Force -Path "logs" | Out-Null
-
-      - name: Smoke test EXE (non-interactive)
-        shell: pwsh
-        run: |
-          $exe = Join-Path -Path "dist" -ChildPath "$env:APP_NAME.exe"
-          if (!(Test-Path $exe)) { throw "EXE missing after build" }
-          $env:NO_FIGLET = '1'
           "N" | & $exe --info
           if ($LASTEXITCODE -ne 0) { throw "Non-zero exit code: $LASTEXITCODE" }
 
-      - name: Prepare package
-        id: pack
+      - name: Install Inno Setup (ISCC)
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path "package" | Out-Null
-          Copy-Item "dist\$env:APP_NAME.exe" "package\$env:APP_NAME.exe"
-          if (Test-Path "README.md")     { Copy-Item "README.md" "package\README.md" }
-          elseif (Test-Path "README.MD") { Copy-Item "README.MD" "package\README.MD" }
-          if (Test-Path "CHANGELOG.md")     { Copy-Item "CHANGELOG.md" "package\CHANGELOG.md" }
-          elseif (Test-Path "CHANGELOG.MD") { Copy-Item "CHANGELOG.MD" "package\CHANGELOG.MD" }
-          if (Test-Path "settings.example.yml") { Copy-Item "settings.example.yml" "package\settings.example.yml" }
-          if (Test-Path "rf2k-trainer.bat") { Copy-Item "rf2k-trainer.bat" "package\rf2k-trainer.bat" }
-          if (Test-Path "LICENSE") { Copy-Item "LICENSE" "package\LICENSE" }
-          # Bundle required bandplan/alignment data files
-          if (Test-Path "iaru_region_1.yml") { Copy-Item "iaru_region_1.yml" "package\iaru_region_1.yml" }
-          if (Test-Path "iaru_region_2.yml") { Copy-Item "iaru_region_2.yml" "package\iaru_region_2.yml" }
-          if (Test-Path "iaru_region_3.yml") { Copy-Item "iaru_region_3.yml" "package\iaru_region_3.yml" }
-          if (Test-Path "rf2k_segment_alignment.yml") { Copy-Item "rf2k_segment_alignment.yml" "package\rf2k_segment_alignment.yml" }
+          choco install innosetup --no-progress -y
+
+      - name: Build installer (.exe) with Inno Setup
+        shell: pwsh
+        run: |
           $version = "${{ github.ref_name }}"
           if (-not $version -or -not $version.StartsWith("v")) { $version = "dev-${{ github.run_number }}" }
-          $zipName = "$env:APP_NAME" + "_" + $version + "_win64.zip"
-          Compress-Archive -Path "package\*" -DestinationPath $zipName
-          "zip_name=$zipName" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          $iscc = "${Env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) { $iscc = "${Env:ProgramFiles}\Inno Setup 6\ISCC.exe" }
+          if (!(Test-Path $iscc)) { throw "ISCC.exe not found" }
+          & "$iscc" "/DAppVersion=$version" "$env:ISS_SCRIPT"
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
 
-      - name: Upload artifact
+      - name: Locate installer output
+        id: locate
+        shell: pwsh
+        run: |
+          $file = Get-ChildItem -Recurse -File -Filter 'rf2k-trainer_Setup_*.exe' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $file) { throw "Installer not found after ISCC build" }
+          "installer_path=$($file.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Upload installer artifact (for CI)
         uses: actions/upload-artifact@v4
         with:
-          name: windows-exe
-          path: |
-            dist/${{ env.APP_NAME }}.exe
-            ${{ steps.pack.outputs.zip_name }}
+          name: win-installer
+          path: ${{ steps.locate.outputs.installer_path }}
 
-      - name: Release on tag
+      - name: Release on tag (attach installer only)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/${{ env.APP_NAME }}.exe
-            ${{ steps.pack.outputs.zip_name }}
+            ${{ steps.locate.outputs.installer_path }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

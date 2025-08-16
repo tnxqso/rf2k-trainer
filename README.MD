@@ -1,68 +1,56 @@
 # RF2K TRAINER
 
-## Quick Start — Windows EXE (no Python, no Git)
-> **Recommended for most users (Windows 10/11, 64‑bit).**  
-> No Python, no Git, no developer tools required.
+## Quick Start — Windows Installer (no Python, no Git)
+> **Recommended for most users (Windows 10/11, 64-bit).**
 
-**Before you begin:** please skim **all steps A–G** once. On first run, Windows **SmartScreen** may show “Windows protected your PC.” This is expected (the binary is currently **unsigned**). See **Step E** for what to click.
-
+**Before you begin:** skim all steps once. On the first run Windows **SmartScreen** may show “Windows protected your PC.”  
+This is expected (the installer is **unsigned**). See **Step D**.
 
 ### A. Download
-1. Open your web browser (Edge, Chrome, Firefox, Opera — anything is fine).
-2. Go to the project **Releases** page:  
+1. Open your browser and go to **Releases**:  
    https://github.com/tnxqso/rf2k-trainer/releases/latest
-3. Scroll to **Assets** and click the file named **`rf2k-trainer_*_win64.zip`** to download it.
-4. When the browser asks where to save, choose **Downloads**. If it downloads automatically, that's fine.
+2. Under **Assets**, download **`RF2K-TRAINER_*_Setup.exe`**.
 
-> **NOTE:** The release ZIP is **flat** — it does **not** contain a parent folder. You will see files like `rf2k-trainer.exe`, `rf2k-trainer.bat`, and `settings.example.yml` at the top level. Create a folder first so everything stays together.
+### B. Install
+1. Double-click the downloaded installer.
+2. Click **Next** and accept the default install folder  
+   *(we recommend your user folder, e.g. `%USERPROFILE%\rf2k-trainer`)*.
+3. (Optional) Tick **Create Desktop shortcut**.
+4. Click **Install** → **Finish**.
 
-### B. Create the install folder
-1. Press **Windows + E** to open **File Explorer**.
-2. In the left sidebar, click **Downloads**.
-3. Right‑click the downloaded ZIP file → click **Extract All…**.
-4. In the dialog, click **Browse…**. In the folder list:
-   - Click your **user name** (for example, **Steve**).
-   - Click **New folder** and name it **rf2k-trainer**.
-   - Click **Select Folder**, then click **Extract**.
-   > Alternative: in the “Files will be extracted to this folder” box, you can paste: `%USERPROFILE%\rf2k-trainer`
+### C. First launch
+- Use the Start Menu shortcut: **RF2K-TRAINER → RF2K-TRAINER (Launcher)**  
+  *(or the Desktop shortcut if you created one).*
+- On first run the launcher will:
+  - create **`settings.yml`**
+  - ensure a **`logs\`** folder
+  - offer to open **Notepad** so you can edit settings:
+    - **FlexRadio**: set `radio.host` (port usually `4992`), keep `type: flex`
+    - **Hamlib rigctl**: set `radio.type: rigctl`, `rigctld_model`, and serial/host as needed
+- Save the file and return to the launcher.
 
-### C. First run
-1. After extraction, the **rf2k-trainer** folder opens.
-2. Double‑click **`rf2k-trainer.bat`** (menu launcher).
-> The BAT file creates `settings.yml`, ensures a working `logs\` folder, and uses the recommended working directory.  
-3. On first run it will **create `settings.yml`** for you and offer to open it in **Notepad**.
-4. Click **Yes** to open **Notepad** and edit your settings:
-   - **FlexRadio** users: set your radio’s IP in `radio.host` (port is usually `4992`). Leave `type: flex`.
-   - **Hamlib rigctl** users: set `radio.type: rigctl` and **`rigctld_model`** (Hamlib model number). You may also set `rigctld_path` if Hamlib is not in PATH. The trainer can start `rigctld` automatically.
-5. Save the file in Notepad (**Ctrl+S**) and close Notepad. Return to the launcher window and press a key to continue.
-
-> ℹ️ The launcher may show a **folder warning** if you didn’t extract to `%USERPROFILE%\rf2k-trainer`.  
-> That’s okay—just confirm you intend to run it from your chosen folder.
-
-
-### D. Use the menu
-- **1)** Run full tuning (all enabled bands)  
-- **2)** Show tuning info only (`--info`)  
-- **3)** Tune specific band(s) (example: `20 40 60m`)  
-- **4)** Run in debug mode (adds `--debug`)  
-- **5)** Clear old logs (`--clear-logs`)  
-
-### E. SmartScreen (first run warning)
-If Windows shows **“Windows protected your PC”**:
+### D. SmartScreen (first run)
+If you see **“Windows protected your PC”**:
 1. Click **More info**.
 2. Click **Run anyway**.
 
-> Note: the EXE is currently **unsigned**, so SmartScreen will appear on first run. This is expected.
+### E. Daily use
+Launch **RF2K-TRAINER (Launcher)** and use the menu:
+- **1)** Full tuning (all enabled bands)  
+- **2)** Show tuning info (`--info`)  
+- **3)** Tune specific band(s)  
+- **4)** Debug mode  
+- **5)** Clear old logs
 
-
-### F. Upgrade later
+### F. Upgrade
 1. Close the trainer.
-2. Download the new **`rf2k-trainer_*_win64.zip`** from **Releases**.
-3. Open your folder **`%USERPROFILE%\rf2k-trainer`** in **File Explorer**.
-4. Copy the new **`rf2k-trainer.exe`** (and the `.bat` if updated) over the old one(s). **Do not delete `settings.yml` or `logs\`.**
+2. Download the newest **`RF2K-TRAINER_*_Setup.exe`**.
+3. Run it — it will **upgrade in place** and keep your `settings.yml` and `logs\`.
 
-### G. Where to find logs
-- Logs are written to the **`logs\`** subfolder. Include them if you ask for help.
+### G. Uninstall
+Windows **Settings → Apps → Installed apps → RF2K-TRAINER → Uninstall**.
+
+> ℹ️ If you use the installer, **skip “General Requirements”** below.
 
 
 ## Table of Contents
@@ -89,8 +77,7 @@ If Windows shows **“Windows protected your PC”**:
   - [Recommended First Step](#recommended-first-step)
 - [Real-World Tuning Time (Example)](#real-world-tuning-time-example)
 - [Band Plan Overrides](#band-plan-overrides)
-- [Windows Launcher Script (Optional)](#windows-launcher-script-optional)
-  - [Create a Desktop Shortcut](#create-a-desktop-shortcut)
+- [Windows Launcher, Recommended](#windows-launcher-how-you-should-start-the-app)
 - [Debugging and Troubleshooting](#debugging-and-troubleshooting)
 - [Upgrade Instructions](#upgrade-instructions)
 - [Contributing](#contributing)
@@ -176,6 +163,11 @@ It’s a controlled, deterministic approach that reduces guesswork, while still 
 - Logs debug output and tuner data to separate files in the `logs/` directory
 - Cross-checks radio frequency with **RF2K-S `/data`** (truncated to kHz, no rounding) after each segment frequency change.
 - Tuner CSV now also logs **drive_pwr** and **swr_final** (when PTT was auto-detected).
+- Clear **PTT status cues** in the console:
+  - **Green** “OK to key” hint when the trainer is waiting for you to transmit
+  - **Red** “TX ACTIVE” banner while the carrier is detected
+  - These appear only during **auto-PTT** flows and disappear automatically
+
 
 
 ## Supported Radios
@@ -211,7 +203,7 @@ This section guides you through installing RF2K-TRAINER and preparing your syste
 
 ### ⚙️ General Requirements (All Platforms)
 
-> ✅ **If you used the Windows EXE Quick Start above, you can skip this entire section.**  
+> ✅ If you installed via the **Windows Installer**, you can **skip this entire section**. 
 > These general requirements are primarily for source installs (developers, Linux/macOS, or advanced Windows setups).
 
 Before proceeding, ensure the following tools are installed:
@@ -262,7 +254,7 @@ FlexRadio users can skip this step.
   radio:
     type: rigctl
     auto_start_rigctld: true
-    rigctld_path: "C:\Program Files\hamlib-w64-4.6.4\bin\rigctld.exe"
+    rigctld_path: 'C:\Program Files\hamlib-w64-4.6.4\bin\rigctld.exe'
     model: 3073 # For Icom IC-7300
     serial_port: COM4
   ```
@@ -348,7 +340,7 @@ radio:
 radio:
   type: rigctl
   auto_start_rigctld: true
-  rigctld_path: "/usr/local/bin/rigctld"
+  rigctld_path: '/usr/local/bin/rigctld'
   model: 3073  # For Icom IC-7300
   serial_port: "/dev/ttyUSB0"
 ```
@@ -499,28 +491,15 @@ If you need to limit the band range, you may do so in `settings.yml`. A valid ov
 ---
 
 
-## Windows Launcher Script (Optional)
+## Windows Launcher (how you should start the app)
 
+The installer places a Start Menu shortcut **RF2K-TRAINER (Launcher)** that opens a simple menu.  
+This is the **recommended** way to run the tool on Windows. The launcher ensures `settings.yml` and `logs\` exist and uses the correct working directory.
 
-To simplify usage for less technical users, RF2K-TRAINER includes a ready-to-use `.bat` launcher script that presents a text-based menu of common options:
 
 ![Launcher Script Screenshot](./assets/images/launcher_script.png)
 
 This script allows users to interact with RF2K-TRAINER without typing commands manually.
-
-### Create a Desktop Shortcut
-
-You may create a shortcut to the launcher for easier access:
-
-1. Locate the `rf2k-trainer.bat` file inside your `rf2k-trainer` folder (typically under `C:\Users\YourName\rf2k-trainer`)
-2. Right-click the file and choose **Send to → Desktop (create shortcut)**
-3. (Optional) Right-click the new shortcut and choose **Properties**
-   - Under the **Shortcut** tab, you may choose **Change Icon** to give it a custom look
-   - You can also set it to **Run: Minimized** if preferred
-4. Double-click the icon to launch RF2K-TRAINER
-
-This is the recommended way to run RF2K-TRAINER on Windows for casual users.
-
 
 ## Debugging and Troubleshooting
 
@@ -725,7 +704,7 @@ Example configuration:
 radio:
   type: rigctl
   auto_start_rigctld: true
-  rigctld_path: "C:\\Program Files\\hamlib-w64-4.6.4\\bin\\rigctld.exe"
+  rigctld_path: 'C:\Program Files\hamlib-w64-4.6.4\bin\rigctld.exe'
   model: 3073  # For Icom IC-7300
   serial_port: COM4
 ```

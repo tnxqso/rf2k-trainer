@@ -6,6 +6,30 @@ rem Always run from the folder where this .bat resides
 set "LAUNCHER_DIR=%~dp0"
 cd /d "%LAUNCHER_DIR%"
 
+rem --- Single-instance guard (PID lock) ---
+set "LOCK=%LAUNCHER_DIR%rf2k-trainer.launch.lock"
+
+if exist "%LOCK%" (
+  rem If lock exists, check if the recorded PID is still alive
+  for /f "usebackq delims=" %%E in (`powershell -NoProfile -Command ^
+    "try { $pidTxt = Get-Content -LiteralPath '%LOCK%' -Raw; if([string]::IsNullOrWhiteSpace($pidTxt)){ exit 0 } ;" ^
+    "try { Get-Process -Id ([int]$pidTxt) -ErrorAction Stop | Out-Null; exit 99 } catch { exit 0 } } catch { exit 0 }"`) do set "DUMMY=%%E"
+  if errorlevel 99 (
+    echo [INFO] RF2K-TRAINER Launcher is already running (single instance).
+    echo        If this is unexpected, close the other window or delete:
+    echo        "%LOCK%"
+    timeout /t 5 >nul
+    exit /b 1
+  ) else (
+    rem Stale or empty lock -> remove it
+    del /q "%LOCK%" 2>nul
+  )
+)
+
+rem Write our own PID to the lock file
+for /f %%P in ('powershell -NoProfile -Command "$PID"') do set "SELF_PID=%%P"
+> "%LOCK%" echo %SELF_PID%
+
 rem Recommended install folder for reference/warning
 set "RECOMM=%USERPROFILE%\rf2k-trainer\"
 
@@ -143,5 +167,7 @@ if defined NEWCFG (
 exit /b 0
 
 :endall
+rem Clean up the lock on normal exit
+if exist "%LOCK%" del /q "%LOCK%" 2>nul
 endlocal
 exit /b 0

@@ -5,6 +5,36 @@ All notable changes to RF2K-TRAINER will be documented in this file.
 ## [Unreleased]
 - Placeholder for upcoming changes
 
+## [v0.9.300] - 2025-08-16
+### ⚠️ Breaking Changes
+- **Release packaging change (Windows):** GitHub Releases now publish **only** the Windows
+  **Installer** (`RF2K-Trainer_Setup_vX.Y.Z.exe`). The standalone one-file EXE and the portable
+  ZIP are no longer attached. Developers can still build a portable EXE locally via the workflow or
+  PyInstaller.
+
+### ✨ Added
+- **Windows Installer (Inno Setup):** One-click install with Start Menu shortcuts, optional Desktop
+  shortcut, and a proper Uninstaller. Installs the EXE, launcher BAT, data files, and README. First-run
+  still creates `settings.yml` and `logs\` if missing.
+- **Application/installer icon:** custom `.ico` embedded in both the EXE and the Installer.
+- **Single-instance launcher:** `rf2k-trainer.bat` now prevents multiple concurrent sessions using
+  a PID lock file and auto-cleans stale locks.
+
+### 🛠 Changed
+- **Launcher UX:** always runs from its own directory, warns (non-blocking) if not in the recommended
+  folder, prefers local EXE, then EXE in the recommended folder, else falls back to `python main.py`.
+  Prints exit code only on failure.
+- **CI pipeline:** On tag pushes (`v*`) or manual dispatch, build one-file EXE (bundling `pyfiglet` fonts),
+  run a non-interactive smoke test (`--info`, copies `settings.example.yml` → `settings.yml`, `NO_FIGLET=1`),
+  then compile the **Inno Setup** installer. **Only the installer** is attached to the Release asset list
+  (GitHub still auto-adds “Source code (zip/tar.gz)”).
+- **Docs:** README updated to emphasize the Windows Installer Quick Start and that “General requirements”
+  do not apply to the installer path. Mentioned the demo video and recommended using the launcher/Start Menu.
+
+### 🐛 Fixed
+- More robust first-run config creation and clearer messages in the launcher.
+- Minor polishing around exit handling and path checks.
+
 ## [v0.9.202] - 2025-08-15
 ### ⚠️ Breaking Changes
 - **New RF2K-S setting:** `rf2k_s.interface` (default `CAT`).  
