@@ -51,7 +51,6 @@ jobs:
           if (Test-Path 'requirements.txt') {
             pip install -r requirements.txt
           }
-          # Ensure PyInstaller is available (use project pin if specified in requirements.txt)
           if (-not (pip show pyinstaller)) {
             pip install pyinstaller
           }
@@ -62,7 +61,6 @@ jobs:
           if (Test-Path 'rf2k-trainer.spec') {
             pyinstaller --noconfirm rf2k-trainer.spec
           } else {
-            # Fallback: pack main.py as rf2k-trainer.exe
             if (-not (Test-Path 'main.py')) {
               Write-Error "main.py not found and no rf2k-trainer.spec present."
               exit 1
@@ -88,12 +86,13 @@ jobs:
         shell: pwsh
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path 'rf2k-trainer.iss')) {
-            Write-Error "Missing rf2k-trainer.iss in repository root."
+          $iss = Get-ChildItem -Recurse -File -Filter 'rf2k-trainer.iss' | Select-Object -First 1
+          if (-not $iss) {
+            Write-Error "rf2k-trainer.iss not found anywhere in the repository. Add it and commit."
             exit 1
           }
-          # Pass version from tag to the preprocessor symbol AppVersion
-          & $iscc /Qp "/DAppVersion=${{ steps.ver.outputs.version }}" "rf2k-trainer.iss"
+          Write-Host "Using Inno Setup script: $($iss.FullName)"
+          & $iscc /Qp "/DAppVersion=${{ steps.ver.outputs.version }}" "$($iss.FullName)"
 
       - name: Locate installer
         id: locate
@@ -106,6 +105,7 @@ jobs:
           }
           if (-not $file) {
             Write-Error "Installer not found. Ensure OutputBaseFilename=RF2K-TRAINER_{#AppVersion}_Setup in rf2k-trainer.iss"
+            Get-ChildItem -Recurse -File -Filter '*.exe' | ForEach-Object { Write-Host "Found EXE: $($_.FullName)" }
             exit 1
           }
           echo "path=$($file.FullName)" >> $env:GITHUB_OUTPUT
@@ -135,7 +135,6 @@ jobs:
             const {data: release} = await github.rest.repos.getReleaseByTag({
               owner: context.repo.owner, repo: context.repo.repo, tag
             });
-            // Keep only the single Setup.exe matching our naming convention
             const keepRe = /^RF2K-TRAINER_.*_Setup\.exe$/i;
             const remove = release.assets.filter(a =>
               !keepRe.test(a.name) && !/^Source code \(.+\)$/i.test(a.name)
