@@ -11,6 +11,10 @@
 #define AppVersion "0.0.0-dev"
 #endif
 
+#ifndef AppBin
+#define AppBin "..\dist\rf2k-trainer.exe"
+#endif
+
 [Setup]
 ; Keep this GUID stable across versions
 AppId={{D9A86C1E-6C7D-470C-9E5F-53A2A6C6E0B2}}
@@ -45,7 +49,7 @@ Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "A
 
 [Files]
 ; Core binaries/config
-Source: "dist\rf2k-trainer.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#AppBin}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "rf2k-trainer.bat";       DestDir: "{app}"; Flags: ignoreversion
 Source: "settings.example.yml";   DestDir: "{app}"; Flags: ignoreversion
 
