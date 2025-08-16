@@ -8,6 +8,10 @@
 #define MyAppURL "https://github.com/tnxqso/rf2k-trainer"
 #define AppVersion GetStringParam("AppVersion", "0.0.0-dev")
 
+#ifndef AppVersion
+#define AppVersion "0.0.0-dev"
+#endif
+
 [Setup]
 ; Keep this GUID stable across versions
 AppId={{D9A86C1E-6C7D-470C-9E5F-53A2A6C6E0B2}}
