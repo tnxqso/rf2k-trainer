@@ -32,7 +32,7 @@ PrivilegesRequired=lowest
 
 Compression=lzma
 SolidCompression=yes
-OutputBaseFilename=rf2k-trainer_Setup_{#AppVersion}_win64
+OutputBaseFilename=RF2K-TRAINER_{#AppVersion}_Setup
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
