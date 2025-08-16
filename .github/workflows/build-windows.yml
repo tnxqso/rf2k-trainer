@@ -84,22 +84,40 @@ jobs:
             Write-Error "Could not find ISCC.exe"
             exit 1
           }
-          Write-Host "ISCC: $iscc"
+          echo "ISCC=$iscc" >> $env:GITHUB_OUTPUT
+
+      - name: Verify files to be packaged
+        shell: pwsh
+        run: |
+          $root = (Get-Location).Path
+          $required = @(
+            "installer\rf2k-trainer.iss",
+            "rf2k-trainer.bat",
+            "settings.example.yml",
+            "iaru_region_1.yml",
+            "iaru_region_2.yml",
+            "iaru_region_3.yml",
+            "rf2k_segment_alignment.yml",
+            "README.md",
+            "CHANGELOG.md",
+            "dist\rf2k-trainer.exe"
+          )
+          foreach ($rel in $required) {
+            $p = Join-Path $root $rel
+            if (Test-Path $p) { Write-Host "[OK] $rel" } else { Write-Host "[MISS] $rel" }
+          }
 
       - name: Build installer (Inno Setup)
         shell: pwsh
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          $iss = Get-ChildItem -Recurse -File -Filter 'rf2k-trainer.iss' | Select-Object -First 1
-          if (-not $iss) { throw "rf2k-trainer.iss not found in repo" }
-          $appbin = Get-ChildItem -Recurse -File -Path dist -Filter 'rf2k-trainer.exe' | Select-Object -First 1
-          if (-not $appbin) { throw "No rf2k-trainer.exe under dist\" }
-          $scriptDir = Split-Path -Parent $iss.FullName
-          Push-Location $scriptDir
+          $iss = Resolve-Path "installer\rf2k-trainer.iss"
+          $appbin = Resolve-Path "dist\rf2k-trainer.exe"
+          Push-Location (Split-Path -Parent $iss)
           try {
-            Write-Host "Using Inno script: $($iss.Name) at $scriptDir"
-            Write-Host "AppBin: $($appbin.FullName)"
-            & $iscc /Qp "/DAppVersion=${{ steps.ver.outputs.version }}" "/DAppBin=$($appbin.FullName)" "$($iss.Name)"
+            Write-Host "Using Inno script: $([IO.Path]::GetFileName($iss)) at $(Get-Location)"
+            Write-Host "AppBin: $appbin"
+            & $iscc /Qp "/DAppVersion=${{ steps.ver.outputs.version }}" "/DAppBin=$appbin" "rf2k-trainer.iss"
           } finally {
             Pop-Location
           }
@@ -108,15 +126,13 @@ jobs:
         id: locate
         shell: pwsh
         run: |
-          $iss = Get-ChildItem -Recurse -File -Filter 'rf2k-trainer.iss' | Select-Object -First 1
-          $scriptDir = Split-Path -Parent $iss.FullName
-          $file = Get-ChildItem -Path $scriptDir -File -Filter 'RF2K-TRAINER_*_Setup.exe' | Select-Object -First 1
-          if (-not $file) {
+          $setup = Get-ChildItem "installer" -File -Filter 'RF2K-TRAINER_*_Setup.exe' | Select-Object -First 1
+          if (-not $setup) {
             Get-ChildItem -Recurse -File -Filter '*.exe' | ForEach-Object { Write-Host "EXE: $($_.FullName)" }
-            throw "Installer not found. Ensure OutputBaseFilename=RF2K-TRAINER_{#AppVersion}_Setup in .iss"
+            throw "Installer not found in installer\ folder. Check OutputDir and .iss."
           }
-          echo "path=$($file.FullName)" >> $env:GITHUB_OUTPUT
-          Write-Host "Installer: $($file.FullName)"
+          echo "path=$($setup.FullName)" >> $env:GITHUB_OUTPUT
+          Write-Host "Installer: $($setup.FullName)"
 
       - name: Upload artifact (for CI debugging)
         uses: actions/upload-artifact@v4
