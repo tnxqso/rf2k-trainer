@@ -66,7 +66,9 @@ jobs:
               Write-Error "main.py not found and no rf2k-trainer.spec present."
               exit 1
             }
-            pyinstaller --noconfirm --onefile --name rf2k-trainer main.py --clean
+            # Bundle pyfiglet fonts so FIGLET output works in the onefile build
+            pyinstaller --noconfirm --onefile --name rf2k-trainer main.py --clean `
+              --collect-data pyfiglet
           }
           if (-not (Test-Path 'dist/rf2k-trainer.exe')) {
             Write-Host "Listing dist:"

@@ -89,8 +89,9 @@ Source: "..\CHANGELOG.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 #if HaveBat
-Name: "{group}\RF2K-TRAINER"; Filename: "{app}\rf2k-trainer.bat"; WorkingDir: "{app}"
-Name: "{userdesktop}\RF2K-TRAINER"; Filename: "{app}\rf2k-trainer.bat"; WorkingDir: "{app}"; Tasks: desktopicon
+[Icons]
+Name: "{group}\RF2K-TRAINER"; Filename: "{app}\rf2k-trainer.bat"; WorkingDir: "{app}"; IconFilename: "{app}\rf2k-trainer.exe"; IconIndex: 0
+Name: "{userdesktop}\RF2K-TRAINER"; Filename: "{app}\rf2k-trainer.bat"; WorkingDir: "{app}"; Tasks: desktopicon; IconFilename: "{app}\rf2k-trainer.exe"; IconIndex: 0
 #else
 Name: "{group}\RF2K-TRAINER"; Filename: "{app}\{#MyAppExe}"; WorkingDir: "{app}"
 Name: "{userdesktop}\RF2K-TRAINER"; Filename: "{app}\{#MyAppExe}"; WorkingDir: "{app}"; Tasks: desktopicon
