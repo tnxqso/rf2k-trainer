@@ -22,7 +22,7 @@ AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 
 ; Install under the user's profile (matches README + .bat assumptions)
-DefaultDirName={userprofile}\rf2k-trainer
+DefaultDirName={autopf}\RF2K-TRAINER
 DefaultGroupName=RF2K-TRAINER
 
 ; Brand the installer/uninstaller with our icon

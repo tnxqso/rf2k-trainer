@@ -13,8 +13,9 @@ This is expected (the installer is **unsigned**). See **Step D**.
 
 ### B. Install
 1. Double-click the downloaded installer.
-2. Click **Next** and accept the default install folder  
-   *(we recommend your user folder, e.g. `%USERPROFILE%\rf2k-trainer`)*.
+2. Click Next and accept the default install folder,
+   the installer chooses automatically:
+   - Per user install, `%LOCALAPPDATA%\Programs\RF2K-TRAINER`
 3. (Optional) Tick **Create Desktop shortcut**.
 4. Click **Install** → **Finish**.
 
@@ -22,9 +23,9 @@ This is expected (the installer is **unsigned**). See **Step D**.
 - Use the Start Menu shortcut: **RF2K-TRAINER → RF2K-TRAINER (Launcher)**  
   *(or the Desktop shortcut if you created one).*
 - On first run the launcher will:
-  - create **`settings.yml`**
-  - ensure a **`logs\`** folder
-  - offer to open **Notepad** so you can edit settings:
+  - create `settings.yml` in **`%LOCALAPPDATA%\RF2K-TRAINER`**
+  - ensure a `logs\` folder in **`%LOCALAPPDATA%\RF2K-TRAINER\logs`**
+- offer to open **Notepad** so you can edit settings:
     - **FlexRadio**: set `radio.host` (port usually `4992`), keep `type: flex`
     - **Hamlib rigctl**: set `radio.type: rigctl`, `rigctld_model`, and serial/host as needed
 - Save the file and return to the launcher.
@@ -494,7 +495,8 @@ If you need to limit the band range, you may do so in `settings.yml`. A valid ov
 ## Windows Launcher (how you should start the app)
 
 The installer places a Start Menu shortcut **RF2K-TRAINER (Launcher)** that opens a simple menu.  
-This is the **recommended** way to run the tool on Windows. The launcher ensures `settings.yml` and `logs\` exist and uses the correct working directory.
+This is the **recommended** way to run the tool on Windows. The launcher ensures `settings.yml` and `logs\` exist under
+`%LOCALAPPDATA%\RF2K-TRAINER`, and uses that as working directory.
 
 
 ![Launcher Script Screenshot](./assets/images/launcher_script.png)
