@@ -6,7 +6,6 @@
 #define MyAppBat  "rf2k-trainer.bat"
 #define MyAppPublisher "tnxqso"
 #define MyAppURL "https://github.com/tnxqso/rf2k-trainer"
-#define AppVersion GetStringParam("AppVersion", "0.0.0-dev")
 
 #ifndef AppVersion
 #define AppVersion "0.0.0-dev"

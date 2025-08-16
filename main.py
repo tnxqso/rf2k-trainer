@@ -32,7 +32,7 @@ if os.name == "nt":
         pass
 
 PROGRAM_NAME = "RF2K-Trainer"
-VERSION = "0.9.303"
+VERSION = "0.9.304"
 GIT_PROJECT_URL = "https://github.com/tnxqso/rf2k-trainer"
 AMPLIFIER_NAME = "RF2K-S HF Power Amplifier"
 
