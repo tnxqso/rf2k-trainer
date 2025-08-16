@@ -1,71 +1,71 @@
 ; Inno Setup script for RF2K-TRAINER
-; ------------------------------------------------------------------
-; Packaging policy:
-; - Publish exactly ONE Windows installer to GitHub Releases:
-;   RF2K-TRAINER_<version>_Setup.exe
-; - No portable zips or raw exe uploads from CI.
-; - Do not create settings.yml during install.
-; ------------------------------------------------------------------
-; CI contract:
-; - Workflow calls ISCC with:
-;     /DAppVersion=<semver-without-v>  (e.g., 0.9.301)
-;     /DAppBin="C:\path\to\dist\rf2k-trainer.exe"
-; - For local/manual builds, AppBin fallback points to ..\dist\rf2k-trainer.exe
-; ------------------------------------------------------------------
+; NOTE: AppVersion is injected by CI: ISCC /DAppVersion=...
+
+#define MyAppName "RF2K-TRAINER"
+#define MyAppExe  "rf2k-trainer.exe"
+#define MyAppBat  "rf2k-trainer.bat"
+#define MyAppPublisher "tnxqso"
+#define MyAppURL "https://github.com/tnxqso/rf2k-trainer"
 
 #ifndef AppVersion
 #define AppVersion "0.0.0-dev"
 #endif
 
-#ifndef AppBin
-#define AppBin "..\\dist\\rf2k-trainer.exe"
-#endif
-
-#define MyAppName "RF2K-TRAINER"
-#define MyAppExe  "rf2k-trainer.exe"
-#define MyAppPublisher "RF2K-TRAINER Project"
-#define MyAppURL "https://github.com/tnxqso/rf2k-trainer"
-
 [Setup]
-AppId={{A8D0911C-4C60-4E2D-BE2D-2C4D9050F3E1}}
+; Keep this GUID stable across versions
+AppId={{D9A86C1E-6C7D-470C-9E5F-53A2A6C6E0B2}}
 AppName={#MyAppName}
 AppVersion={#AppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
-; Install in Program Files if elevated, else per-user in LocalAppData\Programs
+
+; Install under the user's profile (matches README + .bat assumptions)
 DefaultDirName={autopf}\RF2K-TRAINER
 DefaultGroupName=RF2K-TRAINER
-DisableProgramGroupPage=yes
-OutputDir=.
-OutputBaseFilename=RF2K-TRAINER_{#AppVersion}_Setup
-Compression=lzma2
-SolidCompression=yes
+
+; Brand the installer/uninstaller with our icon
+SetupIconFile=assets\icons\rf2k-trainer.ico
+UninstallDisplayIcon={app}\{#MyAppExe}
+
 WizardStyle=modern
-ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=commandline
-UninstallDisplayIcon={app}\{#MyAppExe}
+
+Compression=lzma
+SolidCompression=yes
+OutputBaseFilename=RF2K-TRAINER_{#AppVersion}_Setup
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Create a &Desktop shortcut"; GroupDescription: "Additional icons:"; Flags: unchecked
+Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"; Flags: unchecked
 
 [Files]
-; The workflow passes /DAppBin with an absolute path to rf2k-trainer.exe
-; Fallback enables local builds without CI
-Source: "{#AppBin}"; DestDir: "{app}"; Flags: ignoreversion
+; Core binaries/config
+Source: "dist\rf2k-trainer.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "rf2k-trainer.bat";       DestDir: "{app}"; Flags: ignoreversion
+Source: "settings.example.yml";   DestDir: "{app}"; Flags: ignoreversion
+
+; Docs (optional if present)
+Source: "README.md";              DestDir: "{app}"; Flags: ignoreversion; Check: FileExists(ExpandConstant('{src}\README.md'))
+Source: "CHANGELOG.md";           DestDir: "{app}"; Flags: ignoreversion; Check: FileExists(ExpandConstant('{src}\CHANGELOG.md'))
+Source: "LICENSE";                DestDir: "{app}"; Flags: ignoreversion; Check: FileExists(ExpandConstant('{src}\LICENSE'))
+
+; Data files needed at runtime
+Source: "iaru_region_1.yml";          DestDir: "{app}"; Flags: ignoreversion
+Source: "iaru_region_2.yml";          DestDir: "{app}"; Flags: ignoreversion
+Source: "iaru_region_3.yml";          DestDir: "{app}"; Flags: ignoreversion
+Source: "rf2k_segment_alignment.yml"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-; Start menu
-Name: "{group}\RF2K-TRAINER, Launcher"; Filename: "{app}\{#MyAppExe}"; WorkingDir: "{app}"
+; Start Menu shortcut: target the BAT, but force the icon to be the EXE (so it looks nice)
+Name: "{group}\RF2K-TRAINER";       Filename: "{app}\{#MyAppBat}"; IconFilename: "{app}\{#MyAppExe}"
 ; Optional desktop icon
-Name: "{userdesktop}\RF2K-TRAINER"; Filename: "{app}\{#MyAppExe}"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{commondesktop}\RF2K-TRAINER"; Filename: "{app}\{#MyAppBat}"; IconFilename: "{app}\{#MyAppExe}"; Tasks: desktopicon
 
 [Run]
-; (Intentionally disabled) If you want to auto-run after install, uncomment:
-; Filename: "{app}\{#MyAppExe}"; Description: "Launch RF2K-TRAINER now"; Flags: nowait postinstall skipifsilent
+; Offer to run immediately after install
+Filename: "{app}\{#MyAppBat}"; Description: "Launch RF2K-TRAINER now"; Flags: nowait postinstall skipifsilent

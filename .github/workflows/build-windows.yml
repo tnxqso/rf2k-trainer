@@ -66,7 +66,7 @@ jobs:
               Write-Error "main.py not found and no rf2k-trainer.spec present."
               exit 1
             }
-            pyinstaller --noconfirm --onefile --name rf2k-trainer main.py
+            pyinstaller --noconfirm --onefile --name rf2k-trainer main.py --clean
           }
           if (-not (Test-Path 'dist/rf2k-trainer.exe')) {
             Write-Host "Listing dist:"
@@ -91,33 +91,29 @@ jobs:
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           $iss = Get-ChildItem -Recurse -File -Filter 'rf2k-trainer.iss' | Select-Object -First 1
-          if (-not $iss) {
-            Write-Error "rf2k-trainer.iss not found anywhere in the repository."
-            exit 1
-          }
+          if (-not $iss) { throw "rf2k-trainer.iss not found in repo" }
           $appbin = Get-ChildItem -Recurse -File -Path dist -Filter 'rf2k-trainer.exe' | Select-Object -First 1
-          if (-not $appbin) {
-            Write-Error "No EXE found under dist\\. Did PyInstaller succeed?"
-            exit 1
+          if (-not $appbin) { throw "No rf2k-trainer.exe under dist\" }
+          $scriptDir = Split-Path -Parent $iss.FullName
+          Push-Location $scriptDir
+          try {
+            Write-Host "Using Inno script: $($iss.Name) at $scriptDir"
+            Write-Host "AppBin: $($appbin.FullName)"
+            & $iscc /Qp "/DAppVersion=${{ steps.ver.outputs.version }}" "/DAppBin=$($appbin.FullName)" "$($iss.Name)"
+          } finally {
+            Pop-Location
           }
-          Write-Host "Using Inno script: $($iss.FullName)"
-          Write-Host "AppBin: $($appbin.FullName)"
-          & $iscc /Qp "/DAppVersion=${{ steps.ver.outputs.version }}" "/DAppBin=$($appbin.FullName)" "$($iss.FullName)"
 
       - name: Locate installer
         id: locate
         shell: pwsh
         run: |
-          $file = Get-ChildItem -Recurse -File -Filter 'RF2K-TRAINER_*_Setup.exe' | Select-Object -First 1
+          $iss = Get-ChildItem -Recurse -File -Filter 'rf2k-trainer.iss' | Select-Object -First 1
+          $scriptDir = Split-Path -Parent $iss.FullName
+          $file = Get-ChildItem -Path $scriptDir -File -Filter 'RF2K-TRAINER_*_Setup.exe' | Select-Object -First 1
           if (-not $file) {
-            Write-Host "Searching again with a wide pattern..."
-            $file = Get-ChildItem -Recurse -File -Filter '*Setup*.exe' | Where-Object { $_.Name -match '^RF2K-TRAINER_.*_Setup\.exe$' } | Select-Object -First 1
-          }
-          if (-not $file) {
-            Write-Host "Listing EXEs to help debugging:"
-            Get-ChildItem -Recurse -File -Filter '*.exe' | ForEach-Object { Write-Host "Found EXE: $($_.FullName)" }
-            Write-Error "Installer not found. Ensure OutputBaseFilename=RF2K-TRAINER_{#AppVersion}_Setup in the .iss"
-            exit 1
+            Get-ChildItem -Recurse -File -Filter '*.exe' | ForEach-Object { Write-Host "EXE: $($_.FullName)" }
+            throw "Installer not found. Ensure OutputBaseFilename=RF2K-TRAINER_{#AppVersion}_Setup in .iss"
           }
           echo "path=$($file.FullName)" >> $env:GITHUB_OUTPUT
           Write-Host "Installer: $($file.FullName)"
