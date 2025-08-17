@@ -5,6 +5,27 @@ All notable changes to RF2K-TRAINER will be documented in this file.
 ## [Unreleased]
 - Placeholder for upcoming changes
 
+## [v0.9.313] - 2025-08-17
+### ✨ Added
+- **Windows updater** (`updater.py`) integrated:
+  - `--check-updates` = interactive flow (asks **Y/n**, downloads, starts installer silently).
+  - `--check-updates-auto` = **check only** (no download/install). Returns exit code **0** (up-to-date), **1** (newer available), **2** (error).
+  - Uses the **existing install scope** automatically: *per‑user* (no UAC) when installed under LocalAppData, or *machine‑wide* (UAC) when installed under Program Files.
+  - Writes Inno Setup log to **`%TEMP%\RF2K-TRAINER_update.log`** and exits the trainer with code **111** when the installer is launched so the launcher can close.
+  - Clearer status lines (always show `v`-prefix): e.g. *`[update] up to date: v0.9.313 (latest release: v0.9.312)`*.
+
+### 🛠 Changed
+- **Launcher (`rf2k-trainer.bat`)**
+  - Menu item **6. Check for updates** calls `--check-updates`; the window now pauses so users can read the update messages before it closes.
+  - Better state-dir handling and first‑run setup are kept; EXE is preferred over source.
+- **Build/Packaging**
+  - **Custom app icon** is now embedded in the EXE via PyInstaller (`--icon assets\icons\rf2k-trainer.ico`) and used for the installer (`SetupIconFile=..\assets\icons\rf2k-trainer.ico`).
+  - **Shortcuts**: when a `.bat` launcher is present, shortcuts point to the BAT but use the EXE’s icon so the custom icon displays correctly.
+
+### 🐛 Fixed
+- **Clear logs**: selecting **5. Clear old logs** now only clears logs and returns to the menu (no unintended full tuning run).
+- Robust quoting for installer arguments/log path (fixes “filename/label syntax” errors on some systems).
+
 ## [v0.9.300] - 2025-08-16
 ### ⚠️ Breaking Changes
 - **Release packaging change (Windows):** GitHub Releases now publish **only** the Windows

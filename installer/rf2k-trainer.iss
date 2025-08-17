@@ -31,7 +31,7 @@
 #define HaveChlog  FileExists("..\\CHANGELOG.md")
 
 [Setup]
-AppId={{A8D0911C-4C60-4E2D-BE2D-2C4D9050F3E1}
+AppId={{A8D0911C-4C60-4E2D-BE2D-2C4D9050F3E1}}
 AppName={#MyAppName}
 AppVersion={#AppVersion}
 AppPublisher={#MyAppPublisher}
@@ -51,6 +51,7 @@ ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=commandline
 UninstallDisplayIcon={app}\{#MyAppExe}
+SetupIconFile=..\assets\icons\rf2k-trainer.ico
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -89,12 +90,11 @@ Source: "..\CHANGELOG.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 #if HaveBat
-[Icons]
-Name: "{group}\RF2K-TRAINER"; Filename: "{app}\rf2k-trainer.bat"; WorkingDir: "{app}"; IconFilename: "{app}\rf2k-trainer.exe"; IconIndex: 0
+Name: "{group}\RF2K-TRAINER";      Filename: "{app}\rf2k-trainer.bat"; WorkingDir: "{app}"; IconFilename: "{app}\rf2k-trainer.exe"; IconIndex: 0
 Name: "{userdesktop}\RF2K-TRAINER"; Filename: "{app}\rf2k-trainer.bat"; WorkingDir: "{app}"; Tasks: desktopicon; IconFilename: "{app}\rf2k-trainer.exe"; IconIndex: 0
 #else
-Name: "{group}\RF2K-TRAINER"; Filename: "{app}\{#MyAppExe}"; WorkingDir: "{app}"
-Name: "{userdesktop}\RF2K-TRAINER"; Filename: "{app}\{#MyAppExe}"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{group}\RF2K-TRAINER";      Filename: "{app}\rf2k-trainer.exe"; WorkingDir: "{app}"; IconFilename: "{app}\rf2k-trainer.exe"; IconIndex: 0
+Name: "{userdesktop}\RF2K-TRAINER"; Filename: "{app}\rf2k-trainer.exe"; WorkingDir: "{app}"; Tasks: desktopicon; IconFilename: "{app}\rf2k-trainer.exe"; IconIndex: 0
 #endif
 
 [Run]

@@ -9,3 +9,6 @@ desktop.ini
 __pycache__
 *.exe
 *.bundle
+*.lock
+update_state.json
+*.flag

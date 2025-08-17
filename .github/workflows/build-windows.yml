@@ -68,7 +68,8 @@ jobs:
             }
             # Bundle pyfiglet fonts so FIGLET output works in the onefile build
             pyinstaller --noconfirm --onefile --name rf2k-trainer main.py --clean `
-              --collect-data pyfiglet
+              --collect-data pyfiglet `
+              --icon assets\icons\rf2k-trainer.ico
           }
           if (-not (Test-Path 'dist/rf2k-trainer.exe')) {
             Write-Host "Listing dist:"

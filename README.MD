@@ -32,23 +32,94 @@ This is expected (the installer is **unsigned**). See **Step D**.
     - **Hamlib rigctl**: set `radio.type: rigctl`, `rigctld_model`, and serial/host as needed
 - Save the file and return to the launcher.
 
-### D. SmartScreen (first run)
-If you see **“Windows protected your PC”**:
-1. Click **More info**.
-2. Click **Run anyway**.
+# D. Windows Defender & SmartScreen
+
+Our Windows installer and EXE are currently **unsigned**. Unsigned apps built
+with **PyInstaller** (a self‑extracting executable) are *common* in small open‑source
+projects and can trigger extra checks from Windows security features. Typical
+messages you may see:
+
+- **“Security scan required”** — a quick cloud reputation scan for low‑prevalence files.
+- **“Threats found / quarantined”** — a **heuristic** or “Potentially Unwanted” detection.
+  These are frequently **false positives** for PyInstaller apps built by small projects.
+
+> If you obtained the installer from this repository’s **Releases** page and you trust it,
+> the alerts above are expected and do **not** mean the file is malicious.
+
+---
+
+## Why the builds are unsigned
+
+This project is volunteer‑run. Shipping a signed Windows build requires a
+publisher code‑signing certificate and ongoing admin/verification. We’ve chosen
+to focus our effort on code quality and transparency rather than the certificate
+process for now. You can still verify and run the software safely (see below).
+
+---
+
+## Safe‑use checklist
+
+1. **Download only from the official page**
+   - Releases: `https://github.com/tnxqso/rf2k-trainer/releases/latest`
+   - Asset name: `RF2K-TRAINER_*_Setup.exe`
+
+2. **Keep Defender enabled**
+   - Do *not* disable real‑time protection globally. If Defender quarantines the
+     installer, review the entry and allow it *once* (see next section).
+
+3. **Prefer the built‑in updater when convenient**
+   - The launcher menu item **“Check for updates”** downloads the installer to a
+     temporary folder and runs it. If Defender quarantines it, see the steps below.
+   - Alternatively, download the installer manually from the Releases page and run it.
+
+---
+
+## If Defender quarantines the installer
+
+1. Open **Windows Security → Virus & threat protection → Protection history**.  
+2. Click the **RF2K‑TRAINER_update_*.exe** entry → **Actions → Restore**.  
+3. Click the same entry again → **Actions → Allow on device**.  
+4. Re‑run the installer (either from the launcher update flow or the file you downloaded).
+
+> Only allow files you trust and only from the official release page. Never add
+> broad folder exclusions for convenience.
+
+---
+
+## Prefer source? Run without the installer
+
+You can **inspect the code** and run directly from source as described in [Installation & Configuration](#installation--configuration) if that feels safer.
+
+## Notes
+
+- SmartScreen may still show **“Windows protected your PC”** for unsigned apps.
+  Click **More info → Run anyway** if you trust the file.
+- Corporate environments may block unsigned installers by policy; consult your
+  IT guidelines if applicable.
 
 ### E. Daily use
 Launch **RF2K-TRAINER (Launcher)** and use the menu:
 - **1)** Full tuning (all enabled bands)  
-- **2)** Show tuning info (`--info`)  
+- **2)** Show tuning info (segments per band)
 - **3)** Tune specific band(s)  
-- **4)** Debug mode  
-- **5)** Clear old logs
+- **4)** Run in debug mode 
+- **5)** Clear old logs  
+- **6)** Check for updates
+
 
 ### F. Upgrade
-1. Close the trainer.
-2. Download the newest **`RF2K-TRAINER_*_Setup.exe`**.
-3. Run it — it will **upgrade in place** and keep your `settings.yml` and `logs\`.
+
+**Windows (installed via the Setup.exe) — recommended**
+
+- Use the launcher menu **6) Check for updates**.  
+  The app will query GitHub Releases and, if a newer version exists, start the
+  Windows installer with the **same scope** you originally used:
+  - **Per-user** (no UAC): `%LOCALAPPDATA%\Programs\RF2K-TRAINER`
+  - **Machine-wide** (UAC): `C:\Program Files\RF2K-TRAINER`
+- The installer runs unattended (very silent) and keeps your `settings.yml` and `logs\`.
+- Update log (for troubleshooting):  
+  `%LOCALAPPDATA%\Temp\RF2K-TRAINER_update.log`
+
 
 ### G. Uninstall
 Windows **Settings → Apps → Installed apps → RF2K-TRAINER → Uninstall**.
@@ -388,6 +459,16 @@ python main.py --info
 - `--help` – Shows usage help
 - `--version` – Displays program version
 
+#### Windows update options (CLI)
+
+- `--check-updates` — interactive check & install.  
+  Prompts in the console, then launches the Windows installer silently.  
+  (The launcher window will close once the installer starts.)
+
+- `--check-updates-auto` — **check only** (non-interactive).  
+  Exit code: `0` up-to-date, `1` newer available, `2` error.  
+  Does **not** download or install.
+
 ## Full automatic tuning
 
 ```bash
@@ -503,6 +584,9 @@ This is the **recommended** way to run the tool on Windows. The launcher uses `%
 ![Launcher Script Screenshot](./assets/images/launcher_script.png)
 
 This script allows users to interact with RF2K-TRAINER without typing commands manually.
+
+The launcher also includes **menu item 6 (Check for updates)** which pulls the latest GitHub release and upgrades in place while preserving your settings.
+
 
 ## Debugging and Troubleshooting
 

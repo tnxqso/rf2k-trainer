@@ -22,6 +22,7 @@ from rigctld_manager import RigctldManager, RigCtldManagerError
 from band_math import calculate_tuning_frequencies
 from tuning_loop import run_tuning_loop
 from app_context import AppContext
+import updater
 
 # On Windows terminals, force UTF-8 so icons and accents render OK.
 if os.name == "nt":
@@ -32,7 +33,7 @@ if os.name == "nt":
         pass
 
 PROGRAM_NAME = "RF2K-Trainer"
-VERSION = "0.9.312"
+CURRENT_VERSION = "0.9.314"
 GIT_PROJECT_URL = "https://github.com/tnxqso/rf2k-trainer"
 AMPLIFIER_NAME = "RF2K-S HF Power Amplifier"
 
@@ -510,14 +511,43 @@ def main() -> None:
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     parser.add_argument("--clear-logs", action="store_true", help="Delete old log files and exit")
     parser.add_argument("--info", action="store_true", help="Show band tuning information and exit")
+    # Update checks
+    if os.name == "nt":
+        parser.add_argument(
+            "--check-updates",
+            action="store_true",
+            help="Check for a newer release and offer to download & install",
+        )
+        parser.add_argument(
+            "--check-updates-auto",
+            action="store_true",
+            help="Non-interactive update check (exit code: 0 up-to-date, 1 newer available, 2 error)",
+        )
+
     args = parser.parse_args()
 
     global debug_mode
     debug_mode = args.debug
 
+    # --check-updates          -> interactive install (ask Y/n, installer runs silently)
+    # --check-updates-auto     -> check only (no download/install, exit code only)
+
+    if args.check_updates or args.check_updates_auto:
+        if os.name != "nt":
+            print("[update] Update check is only available on Windows builds.")
+            sys.exit(0)
+
+        mode = "check" if args.check_updates_auto else "interactive"
+        rc = updater.check_for_updates(CURRENT_VERSION, mode=mode)
+        # If the installer was launched, updater will os._exit(111) and we never reach here.
+        # In "check" mode rc is 0 (up-to-date), 1 (newer available), or 2 (error). Normalize None -> 0.
+        sys.exit(rc if isinstance(rc, int) else 0)
+
+    # --clear-logs: purge old logs and exit without running anything else
     if args.clear_logs:
         from loghandler import clear_old_logs
         clear_old_logs("logs")
+        print("[logs] Old logs deleted.")
         sys.exit(0)
 
     # Load configuration and segment alignment data
@@ -571,7 +601,7 @@ def main() -> None:
 
     # --info mode: just print band data and exit
     if args.info:
-        print(f"{PROGRAM_NAME} - v{VERSION} - Band Information")
+        print(f"{PROGRAM_NAME} - v{CURRENT_VERSION} - Band Information")
         total_segments = 0
         for band_name, band_data in ctx.bands.items():
             total_segments += print_band_info(band_name, band_data, ctx)
@@ -590,7 +620,7 @@ def main() -> None:
     # Start banner
     logger.info(f"""
     =================================================================
-    {PROGRAM_NAME} - v{VERSION}
+    {PROGRAM_NAME} - v{CURRENT_VERSION}
     Sequential HF Band Tuning Utility for RF2K-S Amplifiers
     Github repo: {GIT_PROJECT_URL}
     =================================================================
