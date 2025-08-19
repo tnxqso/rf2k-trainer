@@ -15,7 +15,7 @@ You have two ways to install **RF2K-TRAINER**:
    - Works on **Windows, Linux, and macOS**.  
    - Run directly from Python source, no installer involved.  
    - No SmartScreen or Defender warnings.  
-   - Follow [Source Install - Installation & Configuration](#source-install-installation--configuration).
+   - Follow [Source Install - Installation & Configuration](#source-install--installation--configuration).
 
 
 ## 💚 Built by Hams, for Hams
@@ -50,10 +50,10 @@ Nothing else. 100% transparent.
 - [Introduction](#introduction)
 - [Features](#features)
 - [Supported Radios](#supported-radios)
-- [Requirements](#requirements)
--  [Source Install - Installation & Configuration](#source-install-installation--configuration)
+-  [Source Install - Installation & Configuration](#source-install--installation--configuration)
+  - [Requirements](#requirements)
   - [General Requirements (All Platforms)](#️-general-requirements-all-platforms)
-  - [Windows Installation (Step-by-step)](#-windows-installation-step-by-step)
+  - [Windows Source Install (Step-by-step)](#-windows-source-install-step-by-step)
   - [Linux / macOS Installation](#-linux--macos-installation)
   - [Configuration Overview](#️-configuration-overview)
   - [Example `radio:` Settings](#example-radio-settings)
@@ -259,16 +259,6 @@ It’s a controlled, deterministic approach that reduces guesswork, while still 
 
 > ⚠️ When using `rigctl`, drive power cannot be automatically set by this program. You must manually ensure your transceiver outputs the correct `drive_power` during tuning steps.
 
-See [Installing Hamlib (rigctl)](#installing-hamlib-rigctl) below for setup instructions.
-
-## Requirements
-
-- Python 3.10+
-- A supported transceiver:
-  - **FlexRadio** (e.g. FLEX-6000 series) with SmartSDR TCP API, or
-  - Any radio supported by **Hamlib** via `rigctld` (experimental support)
-- RF2K-S HF Power Amplifier (optional) with web API enabled (version 0.9 or later)
-
 ---
 
 
@@ -282,27 +272,32 @@ It works on **Windows, Linux, and macOS**.
 
 ---
 
-### ⚙️ General Requirements (All Platforms)
+### Requirements
 
-Before proceeding, ensure the following tools are installed:
+Before you begin, make sure the following are installed:
 
-- Python **3.10 or later**  
+- **Python 3.10+** (with `pip` package manager)  
   [Download Python](https://www.python.org/downloads/)
 
-- `pip` – Python package manager (usually included with Python)
-
-- Git – used to clone the repository  
+- **Git** (used to clone the repository)  
   [Download Git](https://git-scm.com/downloads)  
-  ✅ During setup on Windows, choose the option:  
-  **"Git from the command line and also from 3rd-party software"**
+  ✅ On Windows, select the option:  
+  *“Git from the command line and also from 3rd-party software”*
 
-- **Hamlib** – Required if you are **not using FlexRadio**  
-  [Download Hamlib from SourceForge](https://sourceforge.net/projects/hamlib/)
+- **Supported transceiver**:  
+  - **FlexRadio** (e.g. FLEX-6000 series with SmartSDR TCP API), or  
+  - Any radio supported by **Hamlib** via `rigctld` (experimental)  
 
----
+- **Hamlib** (only required if you are not using FlexRadio)  
+  [Download Hamlib](https://sourceforge.net/projects/hamlib/)
 
+- **RF2K-S HF Power Amplifier** with web API v0.9 or later
 
-### 🪟 Windows Installation (Step-by-step)
+### 🪟 Windows Source Install (Step-by-step)
+
+> ⚠️ This section is **only for Windows users who chose the Source Install path**.  
+> If you installed RF2K-TRAINER with the **Windows Installer (Setup.exe)**,  
+> you can skip everything here.
 
 If you're new to Python or Git, follow each step carefully:
 
@@ -325,7 +320,7 @@ FlexRadio users can skip this step.
   C:\Program Files\hamlib-w64-4.6.4
   ```
 
-- ⚠️ Take note of this installation path — you’ll need to copy it into your `settings.yml` file.
+- ⚠️ Take note of this installation path — you’ll need to copy it into your `settings.yml` file later.
 
   Example:
   ```yaml
