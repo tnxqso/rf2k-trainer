@@ -172,7 +172,7 @@ Windows **Settings → Apps → Installed apps → RF2K-TRAINER → Uninstall**.
 
 ## Short Demo (Video)
 
-<video src="https://github.com/user-attachments/assets/82b11ebf-c8e6-4de2-93b4-688a2936922d"
+<video src="https://github.com/user-attachments/assets/ba44f19b-d40c-4763-99e4-60cb84057b42"
        controls
        width="840"
        muted
