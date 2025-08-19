@@ -2,35 +2,88 @@
 
 ## Getting Started — Choose Your Path
 
-- **Windows, want it simple?**  
-  → Grab the windows installer. 
-  *(Windows SmartScreen and/or Defender will warn* — that’s normal. (See [Windows Defender & SmartScreen](#d-windows-defender--smartscreen) for more information about that) 
-  Skip to [Quick Start — Windows Installer](#quick-start--windows-installer-no-python-no-git)  
+You have two ways to install **RF2K-TRAINER**:
 
-- **Windows, but cautious (corporate PC, unsigned apps not allowed)?**  
-  → Use the **source install** via [Installation & Configuration](#installation--configuration). No installer, no SmartScreen warnings, 100% transparent.
+1. **Windows Installer (recommended for most users)**  
+   - Easiest option for Windows 10/11.  
+   - One-click install, creates Start Menu shortcuts.  
+   - ⚠️ Windows **SmartScreen** or **Defender** may warn — this is expected.  
+     See [Windows Defender & SmartScreen](#windows-defender--smartscreen).  
+   - Go to [Quick Start — Windows Installer](#quick-start--windows-installer-no-python-no-git).
 
-- **Linux or macOS?**  
-  → Follow [Linux / macOS Installation](#-linux--macos-installation).
+2. **Source Install (maximum transparency, works on all platforms)**  
+   - Works on **Windows, Linux, and macOS**.  
+   - Run directly from Python source, no installer involved.  
+   - No SmartScreen or Defender warnings.  
+   - Follow [Source Install - Installation & Configuration](#source-install-installation--configuration).
 
----
 
 ## 💚 Built by Hams, for Hams
 
-No telemetry. No adware. No nonsense.  
+This project is built by radio amateurs, for radio amateurs.  
+- No telemetry  
+- No adware  
+- No hidden features  
+
 Just open-source code you can read, build, and run yourself — under the [MIT License](https://opensource.org/licenses/MIT).
 
-- **Prefer transparency?** Run from source ([Installation & Configuration](#installation--configuration)).  
-- **Prefer convenience?** Use the [Quick Start — Windows Installer](#quick-start--windows-installer-no-python-no-git).  
-
-The app only communicates with:  
+The app only talks to:  
 - your **radio** (Flex or rigctld)  
 - your **RF2K-S** (if enabled)  
-- GitHub (for release checks)
+- GitHub (to check for new releases)
 
-That’s it.
+Nothing else. 100% transparent.
+
+## Table of Contents
+
+- [Quick Start — Using Windows Installer](#quick-start---using-windows-installer)
+  - [A. Download](#a-download)
+  - [B. Install](#b-install)
+  - [C. First launch](#c-first-launch)
+  - [D. Windows Defender & SmartScreen](#d-windows-defender--smartscreen)
+    - [If Defender quarantines the installer](#if-defender-quarantines-the-installer)
+  - [E. Daily use](#e-daily-use)
+  - [F. Upgrade](#f-upgrade)
+  - [G. Uninstall](#g-uninstall)
+- [Short Demo (Video)](#short-demo-video)
+- [Why RF2K-TRAINER Exists](#why-rf2k-trainer-exists)
+- [Introduction](#introduction)
+- [Features](#features)
+- [Supported Radios](#supported-radios)
+- [Requirements](#requirements)
+-  [Source Install - Installation & Configuration](#source-install-installation--configuration)
+  - [General Requirements (All Platforms)](#️-general-requirements-all-platforms)
+  - [Windows Installation (Step-by-step)](#-windows-installation-step-by-step)
+  - [Linux / macOS Installation](#-linux--macos-installation)
+  - [Configuration Overview](#️-configuration-overview)
+  - [Example `radio:` Settings](#example-radio-settings)
+  - [Setting Your IARU Region](#setting-your-iaru-region)
+- [Usage](#usage)
+  - [Examples](#examples)
+  - [Arguments](#arguments)
+  - [Full automatic tuning](#full-automatic-tuning)
+  - [Tuning a single band](#tuning-a-single-band)
+  - [Show band segments info without tuning](#show-band-segments-info-without-tuning)
+  - [Recommended First Step](#recommended-first-step)
+- [Real-World Tuning Time (Example)](#real-world-tuning-time-example)
+- [Band Plan Overrides](#band-plan-overrides)
+- [Windows Launcher, Recommended](#windows-launcher-how-you-should-start-the-app)
+- [Debugging and Troubleshooting](#debugging-and-troubleshooting)
+- [Upgrade Instructions](#upgrade-instructions)
+- [Contributing](#contributing)
+  - [How to Contribute](#how-to-contribute)
+  - [How to Submit a Pull Request](#how-to-submit-a-pull-request)
+  - [Code Style and Practices](#code-style-and-practices)
+- [Project Independence](#project-independence)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
+- [API Note: "Tune & Store"](#api-note-tune--store)
+- [Useful Resources](#useful-resources)
+- [Installing Hamlib (rigctl)](#installing-hamlib-rigctl)
+- [Disclaimer](#disclaimer)
 
 ---
+
 
 ## Quick Start - Using Windows Installer
 > **Recommended for most users (Windows 10/11, 64-bit).**
@@ -117,49 +170,6 @@ Launch **RF2K-TRAINER (Launcher)** and use the menu:
 ### G. Uninstall
 Windows **Settings → Apps → Installed apps → RF2K-TRAINER → Uninstall**.
 
-> ℹ️ If you use the installer, **skip “General Requirements”** below.
-
-
-## Table of Contents
-
-- [Short Demo (Video)](#short-demo-video)
-- [Why RF2K-TRAINER Exists](#why-rf2k-trainer-exists)
-- [Introduction](#introduction)
-- [Features](#features)
-- [Supported Radios](#supported-radios)
-- [Requirements](#requirements)
-- [Installation & Configuration](#installation--configuration)
-  - [General Requirements (All Platforms)](#️-general-requirements-all-platforms)
-  - [Windows Installation (Step-by-step)](#-windows-installation-step-by-step)
-  - [Linux / macOS Installation](#-linux--macos-installation)
-  - [Configuration Overview](#️-configuration-overview)
-  - [Example `radio:` Settings](#example-radio-settings)
-  - [Setting Your IARU Region](#setting-your-iaru-region)
-- [Usage](#usage)
-  - [Examples](#examples)
-  - [Arguments](#arguments)
-  - [Full automatic tuning](#full-automatic-tuning)
-  - [Tuning a single band](#tuning-a-single-band)
-  - [Show band segments info without tuning](#show-band-segments-info-without-tuning)
-  - [Recommended First Step](#recommended-first-step)
-- [Real-World Tuning Time (Example)](#real-world-tuning-time-example)
-- [Band Plan Overrides](#band-plan-overrides)
-- [Windows Launcher, Recommended](#windows-launcher-how-you-should-start-the-app)
-- [Debugging and Troubleshooting](#debugging-and-troubleshooting)
-- [Upgrade Instructions](#upgrade-instructions)
-- [Contributing](#contributing)
-  - [How to Contribute](#how-to-contribute)
-  - [How to Submit a Pull Request](#how-to-submit-a-pull-request)
-  - [Code Style and Practices](#code-style-and-practices)
-- [Project Independence](#project-independence)
-- [License](#license)
-- [Acknowledgments](#acknowledgments)
-- [API Note: "Tune & Store"](#api-note-tune--store)
-- [Useful Resources](#useful-resources)
-- [Installing Hamlib (rigctl)](#installing-hamlib-rigctl)
-- [Disclaimer](#disclaimer)
-
----
 
 ## Short Demo (Video)
 
@@ -262,16 +272,17 @@ See [Installing Hamlib (rigctl)](#installing-hamlib-rigctl) below for setup inst
 ---
 
 
-## Installation & Configuration
+## Source Install — Installation & Configuration
 
-This section guides you through installing RF2K-TRAINER and preparing your system to communicate with your radio and amplifier.
+Use this method if you want to run RF2K-TRAINER directly from source (Python).  
+It works on **Windows, Linux, and macOS**.
+
+> ✅ If you already used the **Windows Installer**, you can skip this section.  
+> These steps are only needed for source installs (developers, Linux/macOS users, or advanced Windows setups).
 
 ---
 
 ### ⚙️ General Requirements (All Platforms)
-
-> ✅ If you installed via the **Windows Installer**, you can **skip this entire section**. 
-> These general requirements are primarily for source installs (developers, Linux/macOS, or advanced Windows setups).
 
 Before proceeding, ensure the following tools are installed:
 
