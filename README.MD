@@ -52,7 +52,6 @@ Nothing else. 100% transparent.
 - [Supported Radios](#supported-radios)
 -  [Source Install - Installation & Configuration](#source-install--installation--configuration)
   - [Requirements](#requirements)
-  - [General Requirements (All Platforms)](#️-general-requirements-all-platforms)
   - [Windows Source Install (Step-by-step)](#-windows-source-install-step-by-step)
   - [Linux / macOS Installation](#-linux--macos-installation)
   - [Configuration Overview](#️-configuration-overview)
