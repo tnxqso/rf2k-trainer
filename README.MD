@@ -50,13 +50,13 @@ Nothing else. 100% transparent.
 - [Introduction](#introduction)
 - [Features](#features)
 - [Supported Radios](#supported-radios)
--  [Source Install - Installation & Configuration](#source-install--installation--configuration)
+- [Source Install - Installation & Configuration](#source-install--installation--configuration)
   - [Requirements](#requirements)
   - [Windows Source Install (Step-by-step)](#-windows-source-install-step-by-step)
   - [Linux / macOS Installation](#-linux--macos-installation)
-  - [Configuration Overview](#️-configuration-overview)
-  - [Example `radio:` Settings](#example-radio-settings)
-  - [Setting Your IARU Region](#setting-your-iaru-region)
+- [Configuration Overview](#️-configuration-overview)
+- [Example `radio:` Settings](#example-radio-settings)
+- [Setting Your IARU Region](#setting-your-iaru-region)
 - [Usage](#usage)
   - [Examples](#examples)
   - [Arguments](#arguments)
@@ -383,7 +383,7 @@ Then edit `settings.yml` to define:
 
 ---
 
-### ⚙️ Configuration Overview
+## ⚙️ Configuration Overview
 
 All configuration is done via a single file: `settings.yml`
 
