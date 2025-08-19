@@ -1,60 +1,36 @@
 # RF2K TRAINER
 
-### Decision tree
+## Getting Started — Choose Your Path
 
-- **“I just want to use it on Windows.”**  
-  → Grab the [Quick Start — Windows Installer](#quick-start--windows-installer-no-python-no-git) from **[Releases](https://github.com/tnxqso/rf2k-trainer/releases/latest)** and you’re off to the races. If **SmartScreen** or **Defender** waves a yellow flag (it probably will), hop to **[Windows Defender & SmartScreen](#d-windows-defender--smartscreen)** for the quick “allow once” playbook.
+- **Windows, want it simple?**  
+  → Grab the windows installer. 
+  *(Windows SmartScreen and/or Defender will warn — that’s normal. (See [Windows Defender & SmartScreen](#d-windows-defender--smartscreen) for more information about that) 
+  Skip to [Quick Start — Windows Installer](#quick-start--windows-installer-no-python-no-git)  
 
-- **“I’m cautious / on a corporate PC / don’t want unsigned EXEs.”**  
-  → Run **from source (Python)** via **[Installation & Configuration](#installation--configuration)**. 100% transparent, no installer, no SmartScreen on the app itself. 
+- **Windows, but cautious (corporate PC, unsigned apps not allowed)?**  
+  → Use the **source install** via [Installation & Configuration](#installation--configuration). No installer, no SmartScreen warnings, 100% transparent.
 
-- **“I use Linux/macOS.”**  
-  → Source route is your friend: **[Linux / macOS Installation](#linux--macos-installation)**.
+- **Linux or macOS?**  
+  → Follow [Linux / macOS Installation](#-linux--macos-installation).
 
-### Why Windows might warn
+---
 
-Short version: our builds are **unsigned** ([why we don’t sign yet](#why-the-builds-are-unsigned)), and unsigned + low-reputation tools often trigger extra scrutiny. We also use a self-extracting EXE (courtesy of **PyInstaller**), which sometimes looks “suspicious” to automated heuristics. It’s a common false positive for small open-source projects.
+## 💚 Built by Hams, for Hams
 
-- **SmartScreen “Unknown publisher”** = reputation warning, not a malware verdict. See Microsoft’s overview:  
-  <https://learn.microsoft.com/windows/security/threat-protection/microsoft-defender-smartscreen/microsoft-defender-smartscreen-overview>
+No telemetry. No adware. No nonsense.  
+Just open-source code you can read, build, and run yourself — under the [MIT License](https://opensource.org/licenses/MIT).
 
-- **Defender “potentially unwanted app”** = heuristic/PUA bucket. If you got the file from our **[official Releases](https://github.com/tnxqso/rf2k-trainer/releases/latest)**, it’s almost certainly a false alarm. Microsoft on PUAs:  
-  <https://learn.microsoft.com/microsoft-365/security/defender-endpoint/detect-block-potentially-unwanted-apps>
+- **Prefer transparency?** Run from source ([Installation & Configuration](#installation--configuration)).  
+- **Prefer convenience?** Use the [Quick Start — Windows Installer](#quick-start--windows-installer-no-python-no-git).  
 
-> ### 💚 Built by hams, for hams — trust & transparency
->
-> We’re radio amateurs building for radio amateurs. No telemetry, no adware, no funny business — just code you can read, build, and run yourself. We don’t sell anything, and we don’t take money.
->
-> **Paranoid (good!)?** Prefer the fully transparent route: run **from source** via **[Installation & Configuration](#installation--configuration)** (and, for non-Windows, see **[Linux / macOS Installation](#-linux--macos-installation)**).  
-> **Want convenience?** Use the **[Quick Start — Windows Installer](#quick-start--windows-installer-no-python-no-git)** and download from **[Releases](https://github.com/tnxqso/rf2k-trainer/releases/latest)**. If Windows gets grumpy, see **[Windows Defender & SmartScreen](#d-windows-defender--smartscreen)**.
->
-> **What does the app talk to?** Only your **radio** (Flex or `rigctld`) and, if enabled, your **RF2K-S**. The updater checks **GitHub Releases**. No analytics, no trackers — see **[Windows Launcher](#windows-launcher-how-you-should-start-the-app)** for how we start things on Windows.
->
-> When in doubt, pick the **source** path and inspect away — that’s the beauty of open source, under the **[MIT License](https://opensource.org/licenses/MIT)**.
+The app only communicates with:  
+- your **radio** (Flex or rigctld)  
+- your **RF2K-S** (if enabled)  
+- GitHub (for release checks)
 
-### If you choose the Windows Installer (recommended for most)
+That’s it.
 
-- Download `RF2K-TRAINER_*_Setup.exe` from **Releases**.
-- If SmartScreen shows “Windows protected your PC”: **More info → Run anyway**.
-- If Defender quarantines it:
-  1) Open **Windows Security → Virus & threat protection → Protection history**,  
-     select the entry → **Restore** → **Allow on device**.
-  2) Optionally verify the file hash:
-     ```powershell
-     Get-FileHash '.\RF2K-TRAINER_*_Setup.exe' -Algorithm SHA256
-     ```
-- Installer defaults to **per-user** (no admin) under  
-  `%LOCALAPPDATA%\Programs\RF2K-TRAINER`.  
-  Admin installs go to `C:\Program Files\RF2K-TRAINER`.
-
-> Network note: the app talks only to **your radio** (Flex or rigctld) and, if enabled, to your **RF2K-S**. The update checker fetches the **latest release metadata from GitHub**. No analytics, no trackers.
-
-### If you prefer maximum transparency (source install)
-
-- Install Python 3.10+, clone the repo, `pip install -r requirements.txt`, copy `settings.example.yml` → `settings.yml`, then run:
-  ```bash
-  python main.py --info
- ``
+---
 
 ## Quick Start — Windows Installer (no Python, no Git)
 > **Recommended for most users (Windows 10/11, 64-bit).**
@@ -86,7 +62,7 @@ This is expected (the installer is **unsigned**). See **Step D**.
     - **Hamlib rigctl**: set `radio.type: rigctl`, `rigctld_model`, and serial/host as needed
 - Save the file and return to the launcher.
 
-# D. Windows Defender & SmartScreen
+### D. Windows Defender & SmartScreen
 
 Our Windows installer and EXE are currently **unsigned**. Unsigned apps built
 with **PyInstaller** (a self‑extracting executable) are *common* in small open‑source
@@ -191,8 +167,8 @@ Windows **Settings → Apps → Installed apps → RF2K-TRAINER → Uninstall**.
 - [Requirements](#requirements)
 - [Installation & Configuration](#installation--configuration)
   - [General Requirements (All Platforms)](#️-general-requirements-all-platforms)
-  - [Windows Installation (Step-by-step)](#windows-installation-step-by-step)
-  - [Linux / macOS Installation](#linux--macos-installation)
+  - [Windows Installation (Step-by-step)](#-windows-installation-step-by-step)
+  - [Linux / macOS Installation](#-linux--macos-installation)
   - [Configuration Overview](#️-configuration-overview)
   - [Example `radio:` Settings](#example-radio-settings)
   - [Setting Your IARU Region](#setting-your-iaru-region)
