@@ -4,7 +4,7 @@
 
 - **Windows, want it simple?**  
   → Grab the windows installer. 
-  *(Windows SmartScreen and/or Defender will warn — that’s normal. (See [Windows Defender & SmartScreen](#d-windows-defender--smartscreen) for more information about that) 
+  *(Windows SmartScreen and/or Defender will warn* — that’s normal. (See [Windows Defender & SmartScreen](#d-windows-defender--smartscreen) for more information about that) 
   Skip to [Quick Start — Windows Installer](#quick-start--windows-installer-no-python-no-git)  
 
 - **Windows, but cautious (corporate PC, unsigned apps not allowed)?**  
@@ -32,7 +32,7 @@ That’s it.
 
 ---
 
-## Quick Start — Windows Installer (no Python, no Git)
+## Quick Start - Using Windows Installer
 > **Recommended for most users (Windows 10/11, 64-bit).**
 
 **Before you begin:** skim all steps once. On the first run Windows **SmartScreen** may show “Windows protected your PC.”  
@@ -41,14 +41,14 @@ This is expected (the installer is **unsigned**). See **Step D**.
 ### A. Download
 1. Open your browser and go to **Releases**:  
    https://github.com/tnxqso/rf2k-trainer/releases/latest
-2. Under **Assets**, download **`RF2K-TRAINER_*_Setup.exe`**.
+2. Under **Assets**, download **`RF2K-TRAINER_*_Setup.exe`**. ([Read here](#if-defender-quarantines-the-installer) if Defender quarantines your installer)
 
 ### B. Install
 1. Double-click the downloaded installer.
 2. Click **Next** and accept the default install folder — the installer chooses automatically:
    - **Admin install:** `C:\Program Files\RF2K-TRAINER`
    - **Per-user install:** `%LOCALAPPDATA%\Programs\RF2K-TRAINER`
-3. (Optional) Tick **Create Desktop shortcut**.
+3. (Optional but recommended) Tick **Create Desktop shortcut**.
 4. Click **Install** → **Finish**.
 
 ### C. First launch
@@ -78,33 +78,7 @@ messages you may see:
 
 ---
 
-## Why the builds are unsigned
-
-This project is volunteer‑run. Shipping a signed Windows build requires a
-publisher code‑signing certificate and ongoing admin/verification. We’ve chosen
-to focus our effort on code quality and transparency rather than the certificate
-process for now. You can still verify and run the software safely (see below).
-
----
-
-## Safe‑use checklist
-
-1. **Download only from the official page**
-   - Releases: `https://github.com/tnxqso/rf2k-trainer/releases/latest`
-   - Asset name: `RF2K-TRAINER_*_Setup.exe`
-
-2. **Keep Defender enabled**
-   - Do *not* disable real‑time protection globally. If Defender quarantines the
-     installer, review the entry and allow it *once* (see next section).
-
-3. **Prefer the built‑in updater when convenient**
-   - The launcher menu item **“Check for updates”** downloads the installer to a
-     temporary folder and runs it. If Defender quarantines it, see the steps below.
-   - Alternatively, download the installer manually from the Releases page and run it.
-
----
-
-## If Defender quarantines the installer
+#### If Defender quarantines the installer
 
 1. Open **Windows Security → Virus & threat protection → Protection history**.  
 2. Click the **RF2K‑TRAINER_update_*.exe** entry → **Actions → Restore**.  
@@ -115,17 +89,6 @@ process for now. You can still verify and run the software safely (see below).
 > broad folder exclusions for convenience.
 
 ---
-
-## Prefer source? Run without the installer
-
-You can **inspect the code** and run directly from source as described in [Installation & Configuration](#installation--configuration) if that feels safer.
-
-## Notes
-
-- SmartScreen may still show **“Windows protected your PC”** for unsigned apps.
-  Click **More info → Run anyway** if you trust the file.
-- Corporate environments may block unsigned installers by policy; consult your
-  IT guidelines if applicable.
 
 ### E. Daily use
 Launch **RF2K-TRAINER (Launcher)** and use the menu:
