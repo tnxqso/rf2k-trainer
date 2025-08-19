@@ -8,8 +8,8 @@ You have two ways to install **RF2K-TRAINER**:
    - Easiest option for Windows 10/11.  
    - One-click install, creates Start Menu shortcuts.  
    - ⚠️ Windows **SmartScreen** or **Defender** may warn — this is expected.  
-     See [Windows Defender & SmartScreen](#windows-defender--smartscreen).  
-   - Go to [Quick Start — Windows Installer](#quick-start--windows-installer-no-python-no-git).
+     See [Windows Defender & SmartScreen](#d-windows-defender--smartscreen).  
+   - Go to [Quick Start — Windows Installer](#quick-start---using-windows-installer).
 
 2. **Source Install (maximum transparency, works on all platforms)**  
    - Works on **Windows, Linux, and macOS**.  
