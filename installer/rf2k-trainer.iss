@@ -38,6 +38,7 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
+UninstallDisplayName={#MyAppName}
 DefaultDirName={autopf}\RF2K-TRAINER
 DefaultGroupName=RF2K-TRAINER
 DisableProgramGroupPage=yes

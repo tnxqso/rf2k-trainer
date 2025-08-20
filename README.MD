@@ -154,21 +154,24 @@ Launch **RF2K-TRAINER (Launcher)** and use the menu:
 
 ### F. Upgrade
 
-**Windows (installed via the Setup.exe) — recommended**
+Upgrading is simple.
 
-- Use the launcher menu **6) Check for updates**.  
-  The app will query GitHub Releases and, if a newer version exists, start the
-  Windows installer with the **same scope** you originally used:
-  - **Per-user** (no UAC): `%LOCALAPPDATA%\Programs\RF2K-TRAINER`
-  - **Machine-wide** (UAC): `C:\Program Files\RF2K-TRAINER`
-- The installer runs unattended (very silent) and keeps your `settings.yml` and `logs\`.
-- Update log (for troubleshooting):  
+1. Open the launcher and choose **6) Check for updates**.  
+2. The app checks GitHub for a newer version. If one is found, you’ll be asked if you'd like to continue or not.
+3. If you proceed, the installer is downloaded and runs silently in the background.  
+   Your personal settings and log files are kept.
+
+For troubleshooting, an update log is created here:
   `%LOCALAPPDATA%\Temp\RF2K-TRAINER_update.log`
 
-
 ### G. Uninstall
-Windows **Settings → Apps → Installed apps → RF2K-TRAINER → Uninstall**.
 
+To remove RF2K-TRAINER from your system:
+
+1. Open **Windows Settings**  
+2. Go to **Apps → Installed apps**  
+3. Find **RF2K-TRAINER** in the list  
+4. Click **Uninstall** and follow the prompts
 
 ## Short Demo (Video)
 
